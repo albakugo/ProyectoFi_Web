@@ -1,0 +1,463 @@
+﻿<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CRUD de Productos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Modal Registro / Editar -->
+    <div class="modal fade" id="registroProducto" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
+        aria-labelledby="staticBackdropLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="staticBackdropLabel">Producto</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="frmFegistroProducto" class="container mt-2 needs-validation" novalidate>
+                        <input type="hidden" id="ProductId" name="ProductId" value="0">
+
+                        <div class="mb-3">
+                            <label for="ProductName" class="form-label">Nombre del Producto</label>
+                            <input type="text" class="form-control" id="ProductName" name="ProductName" required
+                                maxlength="40" minlength="5">
+                            <div class="invalid-feedback">Por favor, ingresa el nombre del producto (entre 5 y 40 caracteres).</div>
+                            <div class="valid-feedback">Correcto</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="SupplierId" class="form-label">Proveedor</label>
+                                <select class="form-select" id="SupplierId" name="SupplierId">
+                                    <option value="0" selected>Selecciona un proveedor...</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="CategoryId" class="form-label">Categoría</label>
+                                <select class="form-select" id="CategoryId" name="CategoryId">
+                                    <option value="0" selected>Selecciona una categoría...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="QuantityPerUnit" class="form-label">Cantidad por Unidad</label>
+                                <input type="text" class="form-control" id="QuantityPerUnit" name="QuantityPerUnit"
+                                    placeholder="Ej. 24 botellas de 500ml">
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="UnitPrice" class="form-label">Precio Unitario ($)</label>
+                                <input type="number" class="form-control" id="UnitPrice" name="UnitPrice" step="0.01" min="0">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="UnitsInStock" class="form-label">Unidades en Stock</label>
+                                <input type="number" class="form-control" id="UnitsInStock" name="UnitsInStock" min="0">
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label for="UnitsOnOrder" class="form-label">Unidades en Pedido</label>
+                                <input type="number" class="form-control" id="UnitsOnOrder" name="UnitsOnOrder" min="0">
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label for="ReorderLevel" class="form-label">Nivel de Reorden</label>
+                                <input type="number" class="form-control" id="ReorderLevel" name="ReorderLevel" min="0">
+                            </div>
+                        </div>
+
+                        <div class="mb-4 form-check text-start">
+                            <input type="checkbox" class="form-check-input" id="Discontinued" name="Discontinued" value="true">
+                            <label class="form-check-label" for="Discontinued">Producto Descontinuado</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <span id="estadoModal" class="me-auto text-primary fw-semibold d-none">
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        Guardando cambios...
+                    </span>
+                    <button type="submit" id="btnGuardarProducto" class="btn btn-primary" form="frmFegistroProducto">Guardar</button>
+                    <button type="reset" id="btnLimpiarForm" class="btn btn-warning" form="frmFegistroProducto">Limpiar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container my-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <h1 class="mb-0">Lista de productos</h1>
+            <div class="d-flex gap-2">
+                <button type="button" id="btnAbrirAgregar" class="btn btn-primary" onclick="prepararNuevoProducto()">
+                    Agregar
+                </button>
+                <a href="catalogo.html" class="btn btn-success fw-bold">
+                    Catálogo con Cards y Paginación
+                </a>
+            </div>
+        </div>
+
+        <!-- Indicador de estado de procesos asincronos -->
+        <div id="barraEstadoCrud" class="alert alert-secondary py-2 d-flex align-items-center justify-content-between" role="alert">
+            <span id="textoEstadoCrud">Listo.</span>
+            <div id="spinnerEstadoCrud" class="spinner-border spinner-border-sm text-primary d-none" role="status"></div>
+        </div>
+
+        <div class="row my-3">
+            <div class="col-md-4">
+                <label for="filtroProveedor" class="form-label fw-bold">Filtrar por Proveedor:</label>
+                <select id="filtroProveedor" class="form-select" onchange="filtrarPorProveedor(this.value)">
+                    <option value="0">-- Todos los proveedores --</option>
+                </select>
+            </div>
+        </div>
+
+        <table class="table table-striped" id="listaProductos" style="width:100%"></table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.1.8/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        const API_BASE = 'https://localhost:7214/api';
+        const form = document.querySelector('#frmFegistroProducto');
+        let tablaProductosInstance = null;
+
+        function mostrarEstadoCrud(mensaje, cargando = false, tipo = 'alert-secondary') {
+            const barra = document.getElementById('barraEstadoCrud');
+            const texto = document.getElementById('textoEstadoCrud');
+            const spinner = document.getElementById('spinnerEstadoCrud');
+
+            barra.className = `alert ${tipo} py-2 d-flex align-items-center justify-content-between`;
+            texto.textContent = mensaje;
+            if (cargando) {
+                spinner.classList.remove('d-none');
+            } else {
+                spinner.classList.add('d-none');
+            }
+        }
+
+        function prepararNuevoProducto() {
+            form.reset();
+            form.classList.remove('was-validated');
+            document.getElementById('ProductId').value = "0";
+            document.getElementById('staticBackdropLabel').textContent = "Registrar Nuevo Producto";
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('registroProducto'));
+            modal.show();
+        }
+
+        // -------------------------------------------------------------------------
+        // CALLBACKS (XMLHttpRequest directo con callback)
+        // -------------------------------------------------------------------------
+        function cargarCategorias() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `${API_BASE}/Categories`, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+                    const data = JSON.parse(xhr.responseText);
+                    const selectCategoria = document.getElementById('CategoryId');
+                    selectCategoria.innerHTML = '<option value="0" selected>Selecciona una categoría...</option>';
+                    data.forEach(categoria => {
+                        const option = document.createElement('option');
+                        option.value = categoria.categoryId || categoria.categoryID;
+                        option.textContent = categoria.categoryName;
+                        selectCategoria.appendChild(option);
+                    });
+                }
+            };
+            xhr.send();
+        }
+
+        function cargarProveedores() {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `${API_BASE}/Suppliers`, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
+                    const data = JSON.parse(xhr.responseText);
+                    const selectModal = document.getElementById('SupplierId');
+                    const selectFiltro = document.getElementById('filtroProveedor');
+
+                    selectModal.innerHTML = '<option value="0" selected>Selecciona un proveedor...</option>';
+                    if (selectFiltro) {
+                        selectFiltro.innerHTML = '<option value="0" selected>-- Todos los proveedores --</option>';
+                    }
+
+                    data.forEach(proveedor => {
+                        const id = proveedor.supplierId || proveedor.supplierID;
+                        const nombre = proveedor.companyName;
+
+                        const optionModal = document.createElement('option');
+                        optionModal.value = id;
+                        optionModal.textContent = nombre;
+                        selectModal.appendChild(optionModal);
+
+                        if (selectFiltro) {
+                            const optionFiltro = document.createElement('option');
+                            optionFiltro.value = id;
+                            optionFiltro.textContent = nombre;
+                            selectFiltro.appendChild(optionFiltro);
+                        }
+                    });
+                }
+            };
+            xhr.send();
+        }
+
+        // -------------------------------------------------------------------------
+        // AJAX (jQuery $.ajax con callbacks implicitos)
+        // -------------------------------------------------------------------------
+        function renderizarTablaProductos(data) {
+            if (tablaProductosInstance !== null) {
+                tablaProductosInstance.destroy();
+            }
+
+            tablaProductosInstance = new DataTable('#listaProductos', {
+                columns: [
+                    { title: 'Producto', data: 'productName' },
+                    { title: 'Proveedor', data: 'supplierName' },
+                    { title: 'Categoría', data: 'categoryName' },
+                    {
+                        title: 'Precio',
+                        data: 'unitPrice',
+                        render: function (data) {
+                            return data != null ? `$${parseFloat(data).toFixed(2)}` : '$0.00';
+                        }
+                    },
+                    { title: 'Existencia', data: 'unitsInStock' },
+                    {
+                        title: 'Activo',
+                        data: 'discontinued',
+                        render: function (data, type, row) {
+                            return row.discontinued ? 'NO' : 'SI';
+                        }
+                    },
+                    {
+                        title: 'Acciones',
+                        data: null,
+                        orderable: false,
+                        render: function (data, type, row) {
+                            return `
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-warning btn-editar" onclick="editarProducto(${row.productId}, this)">Editar</button>
+                                    <button class="btn btn-sm btn-danger btn-eliminar" onclick="eliminarProducto(${row.productId}, '${row.productName.replace(/'/g, "\\'")}', this)">Eliminar</button>
+                                </div>
+                            `;
+                        }
+                    }
+                ],
+                data: data
+            });
+        }
+
+        function cargarProductos() {
+            const selectFiltro = document.getElementById('filtroProveedor');
+            selectFiltro.disabled = true;
+            mostrarEstadoCrud('Cargando lista de productos mediante AJAX...', true, 'alert-info');
+
+            $.ajax({
+                url: `${API_BASE}/Products`,
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    renderizarTablaProductos(data);
+                    mostrarEstadoCrud(`Carga finalizada: ${data.length} productos obtenidos.`, false, 'alert-success');
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error en AJAX cargarProductos:', error);
+                    mostrarEstadoCrud('Error al cargar los productos desde la API.', false, 'alert-danger');
+                },
+                complete: function () {
+                    selectFiltro.disabled = false;
+                }
+            });
+        }
+
+        function filtrarPorProveedor(supplierId) {
+            const selectFiltro = document.getElementById('filtroProveedor');
+            selectFiltro.disabled = true;
+            mostrarEstadoCrud('Filtrando productos por proveedor (AJAX)...', true, 'alert-info');
+
+            const url = supplierId !== "0"
+                ? `${API_BASE}/Products/BySupplier/${supplierId}`
+                : `${API_BASE}/Products`;
+
+            $.ajax({
+                url: url,
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    renderizarTablaProductos(data);
+                    mostrarEstadoCrud(`Filtro completado: ${data.length} productos mostrados.`, false, 'alert-success');
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error al filtrar productos (AJAX):', error);
+                    mostrarEstadoCrud('Error al filtrar productos.', false, 'alert-danger');
+                },
+                complete: function () {
+                    selectFiltro.disabled = false;
+                }
+            });
+        }
+
+        // -------------------------------------------------------------------------
+        // PROMESAS (.then / .catch / .finally con callbacks implicitos)
+        // -------------------------------------------------------------------------
+        function editarProducto(id, boton) {
+            boton.disabled = true;
+            mostrarEstadoCrud(`Obteniendo datos del producto #${id} mediante Promesa...`, true, 'alert-info');
+
+            fetch(`${API_BASE}/Products/${id}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
+                    return response.json();
+                })
+                .then(producto => {
+                    document.getElementById('ProductId').value = producto.productId;
+                    document.getElementById('ProductName').value = producto.productName || '';
+                    document.getElementById('SupplierId').value = producto.supplierId || 0;
+                    document.getElementById('CategoryId').value = producto.categoryId || 0;
+                    document.getElementById('QuantityPerUnit').value = producto.quantityPerUnit || '';
+                    document.getElementById('UnitPrice').value = producto.unitPrice ?? '';
+                    document.getElementById('UnitsInStock').value = producto.unitsInStock ?? '';
+                    document.getElementById('UnitsOnOrder').value = producto.unitsOnOrder ?? '';
+                    document.getElementById('ReorderLevel').value = producto.reorderLevel ?? '';
+                    document.getElementById('Discontinued').checked = Boolean(producto.discontinued);
+
+                    document.getElementById('staticBackdropLabel').textContent = `Editar Producto #${producto.productId}`;
+                    form.classList.remove('was-validated');
+
+                    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('registroProducto'));
+                    modal.show();
+                    mostrarEstadoCrud(`Producto #${id} listo para editar.`, false, 'alert-secondary');
+                })
+                .catch(error => {
+                    console.error('Error en Promesa editarProducto:', error);
+                    mostrarEstadoCrud(`No se pudo cargar el producto #${id}.`, false, 'alert-danger');
+                })
+                .finally(() => {
+                    boton.disabled = false;
+                });
+        }
+
+        function eliminarProducto(id, nombre, boton) {
+            if (!confirm(`¿Seguro que deseas eliminar "${nombre}"?`)) return;
+
+            boton.disabled = true;
+            mostrarEstadoCrud(`Eliminando producto "${nombre}" mediante Promesa...`, true, 'alert-warning');
+
+            fetch(`${API_BASE}/Products/${id}`, { method: 'DELETE' })
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
+                    mostrarEstadoCrud(`Producto "${nombre}" eliminado correctamente.`, false, 'alert-success');
+                    cargarProductos();
+                })
+                .catch(error => {
+                    console.error('Error en Promesa eliminarProducto:', error);
+                    mostrarEstadoCrud(`Error al eliminar "${nombre}".`, false, 'alert-danger');
+                    boton.disabled = false;
+                });
+        }
+
+        // -------------------------------------------------------------------------
+        // FETCH con ASYNC / AWAIT (en Crear y Actualizar)
+        // -------------------------------------------------------------------------
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            if (!form.checkValidity()) {
+                event.stopPropagation();
+                form.classList.add('was-validated');
+                return;
+            }
+
+            form.classList.add('was-validated');
+
+            const btnGuardar = document.getElementById('btnGuardarProducto');
+            const estadoModal = document.getElementById('estadoModal');
+            btnGuardar.disabled = true;
+            estadoModal.classList.remove('d-none');
+            mostrarEstadoCrud('Enviando datos del producto mediante Fetch...', true, 'alert-info');
+
+            const formData = new FormData(form);
+            const rawData = Object.fromEntries(formData.entries());
+            const productId = parseInt(rawData.ProductId || "0");
+            const esEdicion = productId > 0;
+
+            const payload = {
+                productId: productId,
+                productName: rawData.ProductName,
+                supplierId: rawData.SupplierId && rawData.SupplierId !== "0" ? parseInt(rawData.SupplierId) : null,
+                categoryId: rawData.CategoryId && rawData.CategoryId !== "0" ? parseInt(rawData.CategoryId) : null,
+                quantityPerUnit: rawData.QuantityPerUnit || null,
+                unitPrice: rawData.UnitPrice ? parseFloat(rawData.UnitPrice) : null,
+                unitsInStock: rawData.UnitsInStock ? parseInt(rawData.UnitsInStock) : null,
+                unitsOnOrder: rawData.UnitsOnOrder ? parseInt(rawData.UnitsOnOrder) : null,
+                reorderLevel: rawData.ReorderLevel ? parseInt(rawData.ReorderLevel) : null,
+                discontinued: form.querySelector('#Discontinued').checked
+            };
+
+            const url = esEdicion ? `${API_BASE}/Products/${productId}` : `${API_BASE}/Products`;
+            const metodo = esEdicion ? 'PUT' : 'POST';
+
+            try {
+                const response = await fetch(url, {
+                    method: metodo,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    alert(esEdicion ? 'Producto actualizado exitosamente' : 'Producto registrado exitosamente');
+                    form.reset();
+                    form.classList.remove('was-validated');
+
+                    const modalElement = document.getElementById('registroProducto');
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    cargarProductos();
+                } else {
+                    const errorText = await response.text();
+                    console.error('Error de validación en backend:', errorText);
+                    alert('Error al guardar el producto');
+                    mostrarEstadoCrud('El servidor rechazó la operación.', false, 'alert-danger');
+                }
+            } catch (error) {
+                console.error('Error de red en Fetch:', error);
+                alert('Error de conexión al guardar el producto');
+                mostrarEstadoCrud('Error de red al guardar el producto.', false, 'alert-danger');
+            } finally {
+                btnGuardar.disabled = false;
+                estadoModal.classList.add('d-none');
+            }
+        });
+
+        // Inicializacion al cargar la pagina
+        cargarProductos();
+        cargarCategorias();
+        cargarProveedores();
+    </script>
+</body>
+
+</html>
