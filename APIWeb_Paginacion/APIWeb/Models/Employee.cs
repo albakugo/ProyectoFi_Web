@@ -39,6 +39,8 @@ public partial class Employee
 
     public int? ReportsTo { get; set; }
 
+    public bool Activo { get; set; } = true;
+
     public virtual ICollection<Employee> InverseReportsToNavigation { get; set; } = new List<Employee>();
 
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();

@@ -31,5 +31,7 @@ public partial class Customer
 
     public byte[]? ImageThumbnail { get; set; }
 
+    public bool Activo { get; set; } = true;
+
     public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 }
