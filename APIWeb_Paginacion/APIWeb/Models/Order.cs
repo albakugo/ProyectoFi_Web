@@ -37,6 +37,8 @@ public partial class Order
 
     public virtual Employee? Employee { get; set; }
 
+    public string Estado { get; set; } = "Comprado";
+
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
 
     public virtual Shipper? ShipViaNavigation { get; set; }
