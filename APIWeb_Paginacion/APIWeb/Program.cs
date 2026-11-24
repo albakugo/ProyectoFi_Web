@@ -1,49 +1,69 @@
-using Microsoft.EntityFrameworkCore;
+using System.Text;
 using APIWeb.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<ContextoBD>(options => options.UseMySQL(builder.Configuration.GetConnectionString("ConexionMySQL")));
-
-
-
-// Add services to the container.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ContextoBD>(options =>
+    options.UseMySQL(connectionString!));
+    
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-//// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
+    options.AddDefaultPolicy(policy =>
     {
-        //builder.WithOrigins("http://127.0.0.1:5501")
-        builder.AllowAnyOrigin() //sugerida para que cualquier IP consuma los servicios
-        .AllowAnyMethod()
-        .AllowAnyHeader();
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection["Key"] ?? throw new InvalidOperationException("Falta configurar Jwt:Key en appsettings.json");
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSection["Issuer"],
+            ValidAudience = jwtSection["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
     app.UseSwagger();
-    app.UseSwaggerUI( c =>
-    {        
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Mi API");
-        //Indicar la raiz como URL que responderá con la documentación de swagger
-        c.RoutePrefix = "";
-    });
+    app.UseSwaggerUI();
 }
-app.UseHttpsRedirection();
 
+app.UseCors();
+
+// Siempre en este orden: primero Authentication, luego Authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.UseCors();
+
 app.Run();

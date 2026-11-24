@@ -26,18 +26,23 @@ namespace APIWeb.Controllers
         public async Task<ActionResult<IEnumerable<object>>> GetProducts()
         {
             return await _context.Products
+                .AsNoTracking()
                 .Select(p => new
                 {
                     p.ProductId,
-                    p.ProductName,
+                    ProductName = p.ProductName ?? "Sin nombre",
                     p.UnitPrice,
                     p.QuantityPerUnit,
                     p.UnitsInStock,
-                    p.Discontinued,
+                    Discontinued = p.Discontinued ?? false,
                     p.CategoryId,
                     p.SupplierId,
-                    CategoryName = p.Category != null ? p.Category.CategoryName : "Sin categoría",
-                    SupplierName = p.Supplier != null ? p.Supplier.CompanyName : "Sin proveedor"
+                    CategoryName = p.Category != null && p.Category.CategoryName != null
+                        ? p.Category.CategoryName
+                        : "Sin categoría",
+                    SupplierName = p.Supplier != null && p.Supplier.CompanyName != null
+                        ? p.Supplier.CompanyName
+                        : "Sin proveedor"
                 })
                 .ToListAsync();
         }
@@ -47,76 +52,95 @@ namespace APIWeb.Controllers
         public async Task<ActionResult<IEnumerable<object>>> GetProductsBySupplier(int supplierId)
         {
             return await _context.Products
+                .AsNoTracking()
                 .Where(p => p.SupplierId == supplierId)
                 .Select(p => new
                 {
                     p.ProductId,
-                    p.ProductName,
+                    ProductName = p.ProductName ?? "Sin nombre",
                     p.UnitPrice,
                     p.QuantityPerUnit,
                     p.UnitsInStock,
-                    p.Discontinued,
-                    CategoryName = p.Category != null ? p.Category.CategoryName : "Sin categoría",
-                    SupplierName = p.Supplier != null ? p.Supplier.CompanyName : "Sin proveedor"
+                    Discontinued = p.Discontinued ?? false,
+                    CategoryName = p.Category != null && p.Category.CategoryName != null
+                        ? p.Category.CategoryName
+                        : "Sin categoría",
+                    SupplierName = p.Supplier != null && p.Supplier.CompanyName != null
+                        ? p.Supplier.CompanyName
+                        : "Sin proveedor"
                 })
                 .ToListAsync();
         }
 
         // GET: api/Products/paginado?busqueda=chai&pagina=1&tamanio=12
         // Endpoint alterno exclusivo para filtrar y paginar en la vista de Cards
-        [HttpGet]
-        [Route("paginado")]
+        [HttpGet("paginado")]
         public async Task<ActionResult<object>> GetProductsPaginados(
             [FromQuery] string? busqueda = "",
             [FromQuery] int pagina = 1,
             [FromQuery] int tamanio = 12)
         {
-            if (pagina < 1) pagina = 1;
-            if (tamanio < 1) tamanio = 12;
-            if (tamanio > 48) tamanio = 48; // Validar maximo permitido
-
-            var query = _context.Products.AsQueryable();
-
-            // Aplicar filtro si el usuario escribio algo en el cuadro de texto
-            if (!string.IsNullOrWhiteSpace(busqueda))
+            try
             {
-                string filtro = busqueda.Trim().ToLower();
-                query = query.Where(p =>
-                    p.ProductName.ToLower().Contains(filtro) ||
-                    (p.Category != null && p.Category.CategoryName.ToLower().Contains(filtro)) ||
-                    (p.Supplier != null && p.Supplier.CompanyName.ToLower().Contains(filtro))
-                );
-            }
+                if (pagina < 1) pagina = 1;
+                if (tamanio < 1) tamanio = 12;
+                if (tamanio > 48) tamanio = 48; // Validar maximo permitido
 
-            int totalRegistros = await query.CountAsync();
-            int totalPaginas = (int)Math.Ceiling((double)totalRegistros / tamanio);
+                var query = _context.Products.AsNoTracking().AsQueryable();
 
-            var productos = await query
-                .OrderBy(p => p.ProductId) // Orden determinista para evitar duplicados o saltos entre paginas
-                .Skip((pagina - 1) * tamanio)
-                .Take(tamanio)
-                .Select(p => new
+                // Aplicar filtro si el usuario escribio algo en el cuadro de texto
+                if (!string.IsNullOrWhiteSpace(busqueda))
                 {
-                    p.ProductId,
-                    p.ProductName,
-                    p.UnitPrice,
-                    p.QuantityPerUnit,
-                    p.UnitsInStock,
-                    p.Discontinued,
-                    CategoryName = p.Category != null ? p.Category.CategoryName : "Sin categoría",
-                    SupplierName = p.Supplier != null ? p.Supplier.CompanyName : "Sin proveedor"
-                })
-                .ToListAsync();
+                    string patron = $"%{busqueda.Trim()}%";
+                    query = query.Where(p =>
+                        EF.Functions.Like(p.ProductName ?? "", patron) ||
+                        (p.Category != null && EF.Functions.Like(p.Category.CategoryName ?? "", patron)) ||
+                        (p.Supplier != null && EF.Functions.Like(p.Supplier.CompanyName ?? "", patron))
+                    );
+                }
 
-            return Ok(new
+                int totalRegistros = await query.CountAsync();
+                int totalPaginas = totalRegistros == 0 ? 0 : (int)Math.Ceiling((double)totalRegistros / tamanio);
+
+                var productos = await query
+                    .OrderBy(p => p.ProductId) // Orden determinista para evitar duplicados o saltos entre paginas
+                    .Skip((pagina - 1) * tamanio)
+                    .Take(tamanio)
+                    .Select(p => new
+                    {
+                        p.ProductId,
+                        ProductName = p.ProductName ?? "Sin nombre",
+                        p.UnitPrice,
+                        p.QuantityPerUnit,
+                        p.UnitsInStock,
+                        Discontinued = p.Discontinued ?? false,
+                        CategoryName = p.Category != null && p.Category.CategoryName != null
+                            ? p.Category.CategoryName
+                            : "Sin categoría",
+                        SupplierName = p.Supplier != null && p.Supplier.CompanyName != null
+                            ? p.Supplier.CompanyName
+                            : "Sin proveedor"
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    paginaActual = pagina,
+                    tamanioPagina = tamanio,
+                    totalRegistros,
+                    totalPaginas,
+                    hayMas = pagina < totalPaginas,
+                    datos = productos
+                });
+            }
+            catch (Exception ex)
             {
-                paginaActual = pagina,
-                tamanioPagina = tamanio,
-                totalRegistros,
-                totalPaginas,
-                hayMas = pagina < totalPaginas,
-                datos = productos
-            });
+                return StatusCode(500, new
+                {
+                    mensaje = "Error interno al obtener los productos paginados.",
+                    detalle = ex.Message
+                });
+            }
         }
 
         // GET: api/Products/5

@@ -179,8 +179,8 @@ public partial class ContextoBD : DbContext
             entity.Property(e => e.UnitPrice).HasPrecision(19, 4);
 
             entity.HasOne(d => d.Order).WithMany(p => p.OrderDetails)
-                .HasForeignKey(d => d.OrderId)
-                .HasConstraintName("order details_ibfk_1");
+            .HasForeignKey(d => d.OrderId)
+            .HasConstraintName("order details_ibfk_1");
 
             entity.HasOne(d => d.Product).WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.ProductId)
