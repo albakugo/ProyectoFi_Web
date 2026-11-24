@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Catálogo de Productos</title>
+    <title>Catálogo y Carrito de Compras</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <style>
@@ -23,8 +23,7 @@
         <!-- Encabezado y navegacion -->
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
             <div>
-                <h1 class="mb-1">Catálogo de Productos</h1>
-                <p class="text-muted mb-0">Búsqueda con reinicio de paginación y carga automática por scroll</p>
+                <h1 class="mb-0">Catálogo de Productos</h1>
             </div>
             <a href="index.html" class="btn btn-outline-secondary fw-semibold">
                 &larr; Volver al inicio
@@ -61,6 +60,30 @@
             <span id="contadorResultados" class="badge bg-dark">0 de 0 mostrados</span>
         </div>
 
+        <!-- Panel de Carrito y Compra -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold">Carrito de Compras</h5>
+                <button type="button" id="btnRefrescarCarrito" class="btn btn-sm btn-outline-primary">
+                    Actualizar carrito
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="mensajeCarrito" class="alert d-none py-2 mb-3" role="alert"></div>
+
+                <div id="detalleCarrito">
+                    <p class="text-muted mb-0">Aún no has cargado el carrito o está vacío.</p>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+                    <h5 class="mb-0">Total: <span id="totalCarritoTexto" class="text-success fw-bold">$0.00</span></h5>
+                    <button type="button" id="btnConfirmarCompra" class="btn btn-primary fw-semibold">
+                        Confirmar compra
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Contenedor de Cards -->
         <div id="contenedorCards" class="row row-cols-1 row-cols-md-3 g-4"></div>
 
@@ -81,17 +104,17 @@
         crossorigin="anonymous"></script>
 
     <script>
-        const API_URL_PAGINADO = 'https://localhost:7214/api/Products/paginado';
-        const TAMANIO_PAGINA = 12; 
+        const API_BASE_URL = 'http://localhost:5023';
+        const API_URL_PAGINADO = `${API_BASE_URL}/api/Products/paginado`;
+        const API_ORDERS_BASE = `${API_BASE_URL}/api/Orders`;
+        const TAMANIO_PAGINA = 12;
 
-        // Variables de control de estado y paginacion
         let paginaActual = 1;
         let filtroActual = '';
         let cargando = false;
         let hayMasPaginas = true;
         let totalMostrados = 0;
 
-        // Referencias al DOM
         const formBusqueda = document.getElementById('formBusqueda');
         const txtBusqueda = document.getElementById('txtBusqueda');
         const btnBuscar = document.getElementById('btnBuscar');
@@ -104,11 +127,33 @@
         const contadorResultados = document.getElementById('contadorResultados');
         const spinnerScroll = document.getElementById('spinnerScroll');
         const mensajeFinCatalogo = document.getElementById('mensajeFinCatalogo');
+        const btnRefrescarCarrito = document.getElementById('btnRefrescarCarrito');
+        const btnConfirmarCompra = document.getElementById('btnConfirmarCompra');
+
+        function obtenerTokenJwt() {
+            return localStorage.getItem('token') || '';
+        }
+
+        async function leerRespuestaSegura(resp) {
+            const texto = await resp.text();
+            if (!texto) return {};
+            try {
+                return JSON.parse(texto);
+            } catch {
+                return { mensaje: texto };
+            }
+        }
+
+        function mostrarAlertaCarrito(texto, tipo = 'info') {
+            const alerta = document.getElementById('mensajeCarrito');
+            alerta.className = `alert alert-${tipo} py-2 mb-3`;
+            alerta.textContent = texto;
+            alerta.classList.remove('d-none');
+        }
 
         function actualizarControlesCarga(estaCargando, esNuevaBusqueda) {
             cargando = estaCargando;
 
-            // Evitar doble clic en botones de busqueda cuando se hace la peticion
             btnBuscar.disabled = estaCargando;
             btnLimpiarBusqueda.disabled = estaCargando;
             txtBusqueda.disabled = estaCargando;
@@ -135,29 +180,58 @@
             const col = document.createElement('div');
             col.className = 'col';
 
-            const precio = prod.unitPrice != null ? `$${parseFloat(prod.unitPrice).toFixed(2)}` : 'Sin precio';
-            const badgeEstado = prod.discontinued
+            const id = prod.productId ?? prod.ProductId;
+            const nombre = prod.productName ?? prod.ProductName ?? 'Sin nombre';
+            const categoria = prod.categoryName ?? prod.CategoryName ?? 'General';
+            const proveedor = prod.supplierName ?? prod.SupplierName ?? 'No especificado';
+            const presentacion = prod.quantityPerUnit ?? prod.QuantityPerUnit ?? 'No especificada';
+            const stock = Number(prod.unitsInStock ?? prod.UnitsInStock ?? 0);
+            const precioNum = prod.unitPrice ?? prod.UnitPrice;
+            const esDescontinuado = (prod.discontinued ?? prod.Discontinued) === true;
+
+            const precio = precioNum != null ? `$${parseFloat(precioNum).toFixed(2)}` : 'Sin precio';
+            const badgeEstado = esDescontinuado
                 ? '<span class="badge bg-danger">Descontinuado</span>'
                 : '<span class="badge bg-success">Disponible</span>';
 
+            const noDisponible = esDescontinuado || stock <= 0;
+            const maxAttr = stock > 0 ? `max="${stock}"` : 'max="1"';
+
             col.innerHTML = `
-                <div class="card h-100 shadow-sm product-card border-0">
+                <div class="card h-100 shadow-sm product-card border-0" data-product-id="${id}">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center pt-3 border-bottom-0">
-                        <span class="badge bg-primary-subtle text-primary-emphasis">${prod.categoryName}</span>
+                        <span class="badge bg-primary-subtle text-primary-emphasis">${categoria}</span>
                         ${badgeEstado}
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title fw-bold text-dark">${prod.productName}</h5>
+                        <h5 class="card-title fw-bold text-dark">${nombre}</h5>
                         <p class="card-text text-muted small mb-2">
-                            <strong>Proveedor:</strong> ${prod.supplierName}
+                            <strong>Proveedor:</strong> ${proveedor}
                         </p>
                         <p class="card-text text-muted small mb-0">
-                            <strong>Presentación:</strong> ${prod.quantityPerUnit || 'No especificada'}
+                            <strong>Presentación:</strong> ${presentacion}
                         </p>
                     </div>
-                    <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
-                        <span class="fs-5 fw-bold text-success">${precio}</span>
-                        <span class="text-secondary small">Stock: <strong>${prod.unitsInStock ?? 0}</strong> uds.</span>
+                    <div class="card-footer bg-white border-top pt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fs-5 fw-bold text-success">${precio}</span>
+                            <span class="text-secondary small">Stock: <strong>${stock}</strong> uds.</span>
+                        </div>
+                        <div class="input-group input-group-sm">
+                            <input type="number"
+                                class="form-control cantidad-card"
+                                min="1"
+                                ${maxAttr}
+                                value="1"
+                                aria-label="Cantidad para ${nombre}"
+                                ${noDisponible ? 'disabled' : ''}>
+                            <button type="button"
+                                class="btn btn-success fw-semibold btn-agregar-card"
+                                data-product-id="${id}"
+                                ${noDisponible ? 'disabled' : ''}>
+                                ${esDescontinuado ? 'No disponible' : (stock <= 0 ? 'Sin stock' : 'Agregar')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -165,11 +239,9 @@
         }
 
         async function cargarPaginaProductos(esNuevaBusqueda = false) {
-            // Evitar peticiones duplicadas
             if (cargando) return;
             if (!esNuevaBusqueda && !hayMasPaginas) return;
 
-            // Si es una nueva busqueda, se reinicia la paginacion a 1
             if (esNuevaBusqueda) {
                 paginaActual = 1;
                 hayMasPaginas = true;
@@ -188,12 +260,12 @@
 
             try {
                 const respuesta = await fetch(`${API_URL_PAGINADO}?${params.toString()}`);
+                const resultado = await leerRespuestaSegura(respuesta);
 
                 if (!respuesta.ok) {
-                    throw new Error(`Error HTTP: ${respuesta.status}`);
+                    throw new Error(resultado.mensaje || `Error HTTP: ${respuesta.status}`);
                 }
 
-                const resultado = await respuesta.json();
                 const lista = resultado.datos || [];
 
                 if (lista.length === 0 && paginaActual === 1) {
@@ -213,7 +285,6 @@
                 totalMostrados += lista.length;
                 hayMasPaginas = Boolean(resultado.hayMas);
 
-                // Se mueve el puntero de pagina solo si la carga actual fue exitosa
                 if (hayMasPaginas) {
                     paginaActual++;
                     mensajeFinCatalogo.classList.add('d-none');
@@ -223,33 +294,192 @@
 
                 estadoProceso.className = 'alert alert-success d-flex align-items-center justify-content-between py-2';
                 mensajeEstado.textContent = 'Proceso finalizado correctamente.';
-                contadorResultados.textContent = `${totalMostrados} de ${resultado.totalRegistros} mostrados`;
+                contadorResultados.textContent = `${totalMostrados} de ${resultado.totalRegistros ?? totalMostrados} mostrados`;
 
             } catch (error) {
                 console.error('Error al cargar productos paginados:', error);
                 estadoProceso.className = 'alert alert-danger d-flex align-items-center justify-content-between py-2';
-                mensajeEstado.textContent = 'Ocurrió un error al consultar la API. Intenta nuevamente.';
+                mensajeEstado.textContent = `Error al consultar productos: ${error.message}`;
             } finally {
-                // Siempre reactivar controles al terminar
                 actualizarControlesCarga(false, esNuevaBusqueda);
             }
         }
 
-        // Evento al enviar el formulario de buscar
+        async function cargarCarrito() {
+            const token = obtenerTokenJwt();
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            btnRefrescarCarrito.disabled = true;
+            try {
+                const resp = await fetch(`${API_ORDERS_BASE}/carrito`, { headers });
+                const data = await leerRespuestaSegura(resp);
+
+                if (!resp.ok) {
+                    mostrarAlertaCarrito(
+                        data.mensaje || data.message || (resp.status === 401 ? 'Token JWT inválido o faltante.' : `Error HTTP ${resp.status}`),
+                        resp.status === 401 ? 'warning' : 'danger'
+                    );
+                    return;
+                }
+
+                const contenedor = document.getElementById('detalleCarrito');
+                const totalTexto = document.getElementById('totalCarritoTexto');
+                const items = data.items || [];
+
+                if (items.length === 0) {
+                    contenedor.innerHTML = '<p class="text-muted mb-0">Tu carrito está vacío.</p>';
+                    totalTexto.textContent = '$0.00';
+                    return;
+                }
+
+                let filas = '';
+                items.forEach(item => {
+                    filas += `
+                        <tr>
+                            <td>${item.productName}</td>
+                            <td>$${parseFloat(item.unitPrice).toFixed(2)}</td>
+                            <td>${item.quantity}</td>
+                            <td class="fw-semibold">$${parseFloat(item.subtotal).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                contenedor.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Precio unitario</th>
+                                    <th>Cantidad</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>${filas}</tbody>
+                        </table>
+                    </div>
+                `;
+
+                totalTexto.textContent = `$${parseFloat(data.total ?? 0).toFixed(2)}`;
+            } catch (error) {
+                console.error('Error al cargar carrito:', error);
+                mostrarAlertaCarrito('Error de conexión al consultar el carrito.', 'danger');
+            } finally {
+                btnRefrescarCarrito.disabled = false;
+            }
+        }
+
+        async function agregarProductoDesdeCard(boton) {
+            const productId = parseInt(boton.dataset.productId, 10);
+            const cardFooter = boton.closest('.card-footer');
+            const inputCantidad = cardFooter ? cardFooter.querySelector('.cantidad-card') : null;
+            const quantity = inputCantidad ? parseInt(inputCantidad.value, 10) : 1;
+
+            if (!productId || isNaN(productId)) {
+                mostrarAlertaCarrito('Producto inválido.', 'warning');
+                return;
+            }
+
+            if (!quantity || isNaN(quantity) || quantity <= 0) {
+                mostrarAlertaCarrito('Ingresa una cantidad mayor a 0.', 'warning');
+                return;
+            }
+
+            const token = obtenerTokenJwt();
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
+
+            boton.disabled = true;
+            const textoOriginal = boton.textContent;
+            boton.textContent = 'Agregando...';
+
+            try {
+                const resp = await fetch(`${API_ORDERS_BASE}/carrito/agregar`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ productId, quantity })
+                });
+
+                const data = await leerRespuestaSegura(resp);
+                if (!resp.ok) {
+                    mostrarAlertaCarrito(
+                        data.mensaje || data.message || (resp.status === 401 ? 'Inicia sesión o guarda un token JWT en localStorage.token.' : 'No se pudo agregar el producto.'),
+                        resp.status === 401 ? 'warning' : 'danger'
+                    );
+                    return;
+                }
+
+                mostrarAlertaCarrito(data.mensaje || data.message || 'Producto agregado al carrito.', 'success');
+                if (inputCantidad) inputCantidad.value = '1';
+                await cargarCarrito();
+            } catch (error) {
+                console.error('Error al agregar al carrito:', error);
+                mostrarAlertaCarrito('Error de conexión al agregar al carrito.', 'danger');
+            } finally {
+                boton.disabled = false;
+                boton.textContent = textoOriginal;
+            }
+        }
+
+        async function confirmarCompra() {
+            const token = obtenerTokenJwt();
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            btnConfirmarCompra.disabled = true;
+            const textoOriginal = btnConfirmarCompra.textContent;
+            btnConfirmarCompra.textContent = 'Procesando...';
+
+            try {
+                const resp = await fetch(`${API_ORDERS_BASE}/comprar`, {
+                    method: 'POST',
+                    headers
+                });
+
+                const data = await leerRespuestaSegura(resp);
+                if (!resp.ok) {
+                    mostrarAlertaCarrito(
+                        data.mensaje || data.message || (resp.status === 401 ? 'Necesitas un token JWT válido para confirmar la compra.' : 'No se pudo completar la compra.'),
+                        resp.status === 401 ? 'warning' : 'danger'
+                    );
+                    return;
+                }
+
+                mostrarAlertaCarrito(
+                    `${data.mensaje || data.message || 'Compra realizada.'} Orden #${data.orderId ?? ''} - Total: $${parseFloat(data.total ?? 0).toFixed(2)}`,
+                    'success'
+                );
+                await cargarCarrito();
+                await cargarPaginaProductos(true);
+            } catch (error) {
+                console.error('Error al confirmar compra:', error);
+                mostrarAlertaCarrito('Error de conexión al confirmar la compra.', 'danger');
+            } finally {
+                btnConfirmarCompra.disabled = false;
+                btnConfirmarCompra.textContent = textoOriginal;
+            }
+        }
+
+        contenedorCards.addEventListener('click', (e) => {
+            const boton = e.target.closest('.btn-agregar-card');
+            if (boton && !boton.disabled) {
+                agregarProductoDesdeCard(boton);
+            }
+        });
+
         formBusqueda.addEventListener('submit', (e) => {
             e.preventDefault();
             filtroActual = txtBusqueda.value.trim();
             cargarPaginaProductos(true);
         });
 
-        // Evento para limpiar filtro y reiniciar el catalogo
         btnLimpiarBusqueda.addEventListener('click', () => {
             txtBusqueda.value = '';
             filtroActual = '';
             cargarPaginaProductos(true);
         });
 
-        // Deteccion de scroll hacia abajo para cargar la siguiente pagina
         window.addEventListener('scroll', () => {
             const cercaDelFinal = (window.innerHeight + window.scrollY) >= (document.documentElement.scrollHeight - 120);
 
@@ -258,8 +488,11 @@
             }
         });
 
-        // Carga inicial 
+        btnRefrescarCarrito.addEventListener('click', cargarCarrito);
+        btnConfirmarCompra.addEventListener('click', confirmarCompra);
+
         cargarPaginaProductos(true);
+        cargarCarrito();
     </script>
 </body>
 

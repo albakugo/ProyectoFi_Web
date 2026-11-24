@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Punto de Venta · Carrito y Órdenes</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #15803d;
+      --primary-hover: #166534;
+      --primary-soft: #dcfce7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px 16px 48px;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    /* Encabezado */
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .status-pill.connected {
+      background: var(--primary-soft);
+      border-color: #bbf7d0;
+      color: var(--primary);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Grid principal de 2 columnas */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 860px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .badge-count {
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+    }
+
+    /* Vista previa de producto seleccionado */
+    .product-preview {
+      background: var(--surface-soft);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.88rem;
+    }
+
+    .product-preview strong {
+      color: var(--primary);
+      font-size: 1rem;
+    }
+
+    .muted {
+      color: var(--text-muted);
+    }
+
+    .bold {
+      font-weight: 600;
+    }
+
+    /* Botones */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s;
+    }
+
+    .btn:active {
+      transform: scale(0.99);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      width: 100%;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-outline {
+      background: #fff;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      white-space: nowrap;
+    }
+
+    .btn-outline:hover {
+      background: var(--primary-soft);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.82rem;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    /* Alertas */
+    .alert {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      margin-bottom: 18px;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert-error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid #fecaca;
+    }
+
+    .alert-success {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border: 1px solid #bbf7d0;
+    }
+
+    /* Tabla del carrito */
+    .cart-empty {
+      text-align: center;
+      padding: 36px 16px;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      background: var(--surface-soft);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .cart-footer {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 2px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .total-label {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .total-amount {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .security-note {
+      margin-top: 12px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Encabezado -->
+    <header class="header">
+      <div>
+        <h1>Órdenes de Venta y Carrito</h1>
+      </div>
+      <div id="statusPill" class="status-pill">
+        <span class="dot"></span>
+      </div>
+    </header>
+
+    <!-- Mensajes de validación del servidor -->
+    <div id="alertBox" class="alert"></div>
+
+    <!-- Contenido principal en 2 columnas -->
+    <main class="main-grid">
+      <!-- Columna izquierda: Selección de producto -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Agregar producto</h2>
+          <span class="badge-count" id="productosCount">0 activos</span>
+        </div>
+
+        <div class="field">
+          <label for="productSelect">Producto disponible</label>
+          <select id="productSelect" disabled>
+            <option value="">Cargando productos activos...</option>
+          </select>
+        </div>
+
+        <div class="product-preview" id="productPreview" style="display: none;">
+          <div>
+            <span class="muted">Stock disponible:</span>
+            <span id="previewStock" class="bold">0</span> uds.
+          </div>
+          <div>
+            <span class="muted">Precio ref.:</span>
+            <strong id="previewPrice">$0.00</strong>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="quantityInput">Cantidad</label>
+          <input type="number" id="quantityInput" min="1" value="1" disabled />
+        </div>
+
+        <button type="button" class="btn btn-primary" id="btnAgregar" disabled>
+          + Agregar al carrito
+        </button>
+
+        <p class="security-note">
+        </p>
+      </section>
+
+      <!-- Columna derecha: Carrito actual -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">Tu carrito actual</h2>
+          <button type="button" class="btn btn-outline btn-sm" id="btnRefrescarCarrito" disabled>
+            Actualizar
+          </button>
+        </div>
+
+        <div id="cartContainer">
+          <div class="cart-empty">Cargando tu carrito...</div>
+        </div>
+
+        <div id="cartSummary" style="display: none;">
+          <div class="cart-footer">
+            <span class="total-label">Total calculado (Servidor)</span>
+            <span class="total-amount" id="cartTotal">$0.00</span>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnConfirmar">
+            Confirmar compra
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // URL base fija de la API. Ajusta aquí tu puerto si es distinto.
+    const API_BASE_URL = 'https://localhost:7123/api';
+
+    const productSelect = document.getElementById('productSelect');
+    const quantityInput = document.getElementById('quantityInput');
+    const btnAgregar = document.getElementById('btnAgregar');
+    const btnRefrescarCarrito = document.getElementById('btnRefrescarCarrito');
+    const btnConfirmar = document.getElementById('btnConfirmar');
+    const alertBox = document.getElementById('alertBox');
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const productosCount = document.getElementById('productosCount');
+    const productPreview = document.getElementById('productPreview');
+    const previewStock = document.getElementById('previewStock');
+    const previewPrice = document.getElementById('previewPrice');
+    const cartContainer = document.getElementById('cartContainer');
+    const cartSummary = document.getElementById('cartSummary');
+    const cartTotal = document.getElementById('cartTotal');
+
+    let authToken = null;
+    let productosActivos = [];
+
+    // Obtiene el token que dejó la pantalla de login de tu compañera
+    function obtenerTokenDeSesion() {
+      const params = new URLSearchParams(window.location.search);
+      const tokenUrl = params.get('token');
+      if (tokenUrl) {
+        sessionStorage.setItem('jwtToken', tokenUrl);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return tokenUrl;
+      }
+
+      return (
+        sessionStorage.getItem('jwtToken') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('jwtToken') ||
+        localStorage.getItem('token')
+      );
+    }
+
+    function getBaseUrl() {
+      return API_BASE_URL.trim().replace(/\/$/, '');
+    }
+
+    function mostrarAlerta(mensaje, tipo = 'error') {
+      alertBox.textContent = mensaje;
+      alertBox.className = `alert show ${tipo === 'success' ? 'alert-success' : 'alert-error'}`;
+    }
+
+    function ocultarAlerta() {
+      alertBox.className = 'alert';
+    }
+
+    function getHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      };
+    }
+
+    // 1. Cargar solo productos con Discontinued == false
+    async function cargarProductosActivos() {
+      const res = await fetch(`${getBaseUrl()}/Products`, { headers: getHeaders() });
+      if (!res.ok) throw new Error(`Error ${res.status} al cargar productos.`);
+
+      const data = await res.json();
+      productosActivos = data.filter(p => p.discontinued === false || p.Discontinued === false);
+
+      productSelect.innerHTML = '<option value="">Selecciona un producto activo...</option>';
+      productosActivos.forEach(p => {
+        const id = p.productId ?? p.ProductId;
+        const name = p.productName ?? p.ProductName;
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        productSelect.appendChild(opt);
+      });
+
+      productosCount.textContent = `${productosActivos.length} activos`;
+      productSelect.disabled = false;
+      quantityInput.disabled = false;
+      btnAgregar.disabled = false;
+      btnRefrescarCarrito.disabled = false;
+    }
+
+    // Vista previa de stock/precio referencial al elegir producto
+    productSelect.addEventListener('change', () => {
+      const id = Number(productSelect.value);
+      const prod = productosActivos.find(p => (p.productId ?? p.ProductId) === id);
+      if (!prod) {
+        productPreview.style.display = 'none';
+        return;
+      }
+      const stock = prod.unitsInStock ?? prod.UnitsInStock ?? 0;
+      const price = Number(prod.unitPrice ?? prod.UnitPrice ?? 0);
+      previewStock.textContent = stock;
+      previewPrice.textContent = `$${price.toFixed(2)}`;
+      quantityInput.max = stock > 0 ? stock : '';
+      productPreview.style.display = 'flex';
+    });
+
+    // 2. Enviar SOLO { productId, quantity } (nunca precio ni CustomerId)
+    btnAgregar.addEventListener('click', async () => {
+      ocultarAlerta();
+      const productId = Number(productSelect.value);
+      const quantity = Number(quantityInput.value);
+
+      if (!productId) {
+        mostrarAlerta('Selecciona un producto del catálogo.');
+        return;
+      }
+      if (!quantity || quantity <= 0) {
+        mostrarAlerta('La cantidad debe ser mayor a 0.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${getBaseUrl()}/Orders/carrito`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ productId, quantity })
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(result.mensaje || result.message || 'El servidor rechazó el producto.');
+        }
+
+        mostrarAlerta('Producto agregado al carrito correctamente.', 'success');
+        await cargarCarrito();
+      } catch (err) {
+        mostrarAlerta(err.message);
+      }
+    });
+
+    // 3. Consultar carrito actual del cliente autenticado
+    async function cargarCarrito() {
+      try {
+        const res = await fetch(`${getBaseUrl()}/Orders/carrito`, { headers: getHeaders() });
+        if (!res.ok) {
+          cartContainer.innerHTML = '<div class="cart-empty">Aún no tienes productos en tu carrito.</div>';
+          cartSummary.style.display = 'none';
+          return;
+        }
+
+        const data = await res.json();
+        const items = data.items || data.detalles || [];
+
+        if (!items.length) {
+          cartContainer.innerHTML = '<div class="cart-empty">Tu carrito está vacío. Agrega un producto desde la izquierda.</div>';
+          cartSummary.style.display = 'none';
+          return;
+        }
+
+        let rows = '';
+        items.forEach(item => {
+          const nombre = item.productName || item.producto || `Producto #${item.productId}`;
+          const cant = item.quantity ?? item.cantidad;
+          const precio = Number(item.unitPrice ?? item.precioUnitario ?? 0);
+          const sub = Number(item.subtotal ?? (cant * precio));
+          rows += `
+            <tr>
+              <td>${nombre}</td>
+              <td class="text-right">${cant}</td>
+              <td class="text-right">$${precio.toFixed(2)}</td>
+              <td class="text-right"><strong>$${sub.toFixed(2)}</strong></td>
+            </tr>
+          `;
+        });
+
+        cartContainer.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="text-right">Cant.</th>
+                <th class="text-right">Precio BD</th>
+                <th class="text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+
+        const totalServidor = Number(data.total ?? 0);
+        cartTotal.textContent = `$${totalServidor.toFixed(2)}`;
+        cartSummary.style.display = 'block';
+      } catch {
+        // Silencioso si aún no hay orden activa
+      }
+    }
+
+    btnRefrescarCarrito.addEventListener('click', cargarCarrito);
+
+    // 4. Confirmar compra (cambia Estado de "Carrito" a "Comprado" en el servidor)
+    btnConfirmar.addEventListener('click', async () => {
+      ocultarAlerta();
+      try {
+        const res = await fetch(`${getBaseUrl()}/Orders/confirmar`, {
+          method: 'POST',
+          headers: getHeaders()
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(result.mensaje || result.message || 'No se pudo confirmar la orden.');
+        }
+
+        mostrarAlerta('¡Orden confirmada! El estado pasó a "Comprado" en la base de datos.', 'success');
+        await cargarCarrito();
+      } catch (err) {
+        mostrarAlerta(err.message);
+      }
+    });
+
+    // Inicialización automática al abrir la página tras el login
+    (async function init() {
+      authToken = obtenerTokenDeSesion();
+      if (!authToken) {
+        cartContainer.innerHTML = '<div class="cart-empty">Inicia sesión primero para cargar tu carrito.</div>';
+        mostrarAlerta('No se encontró un token JWT activo. Inicia sesión desde la pantalla de acceso.');
+        return;
+      }
+
+      statusPill.classList.add('connected');
+      statusText.textContent = 'Sesión JWT activa';
+
+      try {
+        await Promise.all([cargarProductosActivos(), cargarCarrito()]);
+      } catch (err) {
+        mostrarAlerta(err.message);
+      }
+    })();
+  </script>
+</body>
+</html>
