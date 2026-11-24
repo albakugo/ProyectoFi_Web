@@ -28,8 +28,44 @@ public partial class ContextoBD : DbContext
 
     public virtual DbSet<Supplier> Suppliers { get; set; }
 
+    public DbSet<Usuario> Usuarios { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Usuario>(entity =>
+        {
+            entity.HasKey(e => e.UsuarioId);
+
+            entity.ToTable("usuarios");
+
+            entity.Property(e => e.UsuarioId)
+                .HasColumnName("UsuarioId");
+
+            entity.Property(e => e.NombreUsuario)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(e => e.Email)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.PasswordHash)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(e => e.Nombre)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Rol)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.CustomerID)
+                .HasMaxLength(5);
+
+            entity.Property(e => e.Activo)
+                .HasColumnName("Activo");
+        });
+
+
         modelBuilder.Entity<Category>(entity =>
         {
             entity.HasKey(e => e.CategoryId).HasName("PRIMARY");
@@ -252,6 +288,7 @@ public partial class ContextoBD : DbContext
 
         OnModelCreatingPartial(modelBuilder);
     }
+
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }
