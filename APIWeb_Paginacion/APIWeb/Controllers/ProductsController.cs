@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,7 @@ namespace APIWeb.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductsController : ControllerBase
     {
         private readonly ContextoBD _context;
@@ -134,6 +136,7 @@ namespace APIWeb.Controllers
         }
 
         // PUT: api/Products/5
+        [Authorize(Roles = "Admin,Empleado")]
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProduct(int id, Product product)
         {
@@ -164,6 +167,7 @@ namespace APIWeb.Controllers
         }
 
         // POST: api/Products
+        [Authorize(Roles = "Admin,Empleado")]
         [HttpPost]
         public async Task<ActionResult<Product>> PostProduct(Product product)
         {
@@ -174,6 +178,7 @@ namespace APIWeb.Controllers
         }
 
         // DELETE: api/Products/5
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
