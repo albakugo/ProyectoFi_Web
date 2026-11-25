@@ -1,17 +1,40 @@
-﻿using System;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace APIWeb.Models;
-
-public partial class Usuario
+namespace APIWeb.Models
 {
-    public int UsuarioId { get; set; }
-    public string NombreUsuario { get; set; } = null!;
-    public string Email { get; set; } = null!;
-    public string PasswordHash { get; set; } = null!;
-    public string Rol { get; set; } = "Cliente";
-    public string? CustomerId { get; set; }
-    public int? EmployeeId { get; set; }
-    public int IntentosFallidos { get; set; } = 0;
-    public DateTime? BloqueadoHasta { get; set; }
-    public bool Activo { get; set; } = true;
+    [Table("usuarios")]
+    public class Usuario
+    {
+        [Key]
+        public int UsuarioId { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        public string NombreUsuario { get; set; } = string.Empty;
+
+        [MaxLength(100)]
+        public string? Email { get; set; }
+
+        [Required]
+        [MaxLength(255)]
+        public string PasswordHash { get; set; } = string.Empty;
+
+        [MaxLength(100)]
+        public string? Nombre { get; set; }
+
+        [MaxLength(20)]
+        public string Rol { get; set; } = "Cliente";
+
+        [MaxLength(5)]
+        public string? CustomerID { get; set; }
+
+        public int? EmployeeID { get; set; }
+
+        public int IntentosFallidos { get; set; }
+
+        public DateTime? BloqueadoHasta { get; set; }
+
+        public bool Activo { get; set; } = true;
+    }
 }
