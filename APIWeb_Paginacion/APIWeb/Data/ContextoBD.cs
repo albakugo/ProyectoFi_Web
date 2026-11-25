@@ -28,6 +28,8 @@ public partial class ContextoBD : DbContext
 
     public virtual DbSet<Supplier> Suppliers { get; set; }
 
+    public virtual DbSet<Usuario> Usuarios { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Category>(entity =>
@@ -59,6 +61,7 @@ public partial class ContextoBD : DbContext
             entity.Property(e => e.CustomerId)
                 .HasMaxLength(5)
                 .HasColumnName("CustomerID");
+            entity.Property(e => e.Activo).HasDefaultValueSql("'1'");
             entity.Property(e => e.Address).HasMaxLength(60);
             entity.Property(e => e.City).HasMaxLength(15);
             entity.Property(e => e.CompanyName).HasMaxLength(40);
@@ -84,6 +87,7 @@ public partial class ContextoBD : DbContext
             entity.HasIndex(e => e.ReportsTo, "ReportsTo");
 
             entity.Property(e => e.EmployeeId).HasColumnName("EmployeeID");
+            entity.Property(e => e.Activo).HasDefaultValueSql("'1'");
             entity.Property(e => e.Address).HasMaxLength(60);
             entity.Property(e => e.BirthDate).HasColumnType("datetime");
             entity.Property(e => e.City).HasMaxLength(15);
@@ -127,6 +131,9 @@ public partial class ContextoBD : DbContext
                 .HasMaxLength(5)
                 .HasColumnName("CustomerID");
             entity.Property(e => e.EmployeeId).HasColumnName("EmployeeID");
+            entity.Property(e => e.Estado)
+                .HasMaxLength(20)
+                .HasDefaultValueSql("'Comprado'");
             entity.Property(e => e.Freight)
                 .HasPrecision(19, 4)
                 .HasDefaultValueSql("'0.0000'");
@@ -248,6 +255,29 @@ public partial class ContextoBD : DbContext
             entity.Property(e => e.Phone).HasMaxLength(24);
             entity.Property(e => e.PostalCode).HasMaxLength(10);
             entity.Property(e => e.Region).HasMaxLength(15);
+        });
+
+        modelBuilder.Entity<Usuario>(entity =>
+        {
+            entity.HasKey(e => e.UsuarioId).HasName("PRIMARY");
+
+            entity.ToTable("usuarios");
+
+            entity.HasIndex(e => e.NombreUsuario, "NombreUsuario").IsUnique();
+
+            entity.HasIndex(e => e.Email, "Email").IsUnique();
+
+            entity.Property(e => e.UsuarioId).HasColumnName("UsuarioID");
+            entity.Property(e => e.NombreUsuario).HasMaxLength(40);
+            entity.Property(e => e.Email).HasMaxLength(100);
+            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+            entity.Property(e => e.Rol).HasMaxLength(20);
+            entity.Property(e => e.CustomerId)
+                .HasMaxLength(5)
+                .HasColumnName("CustomerID");
+            entity.Property(e => e.EmployeeId).HasColumnName("EmployeeID");
+            entity.Property(e => e.BloqueadoHasta).HasColumnType("datetime");
+            entity.Property(e => e.Activo).HasDefaultValueSql("'1'");
         });
 
         OnModelCreatingPartial(modelBuilder);
