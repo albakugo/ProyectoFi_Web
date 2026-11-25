@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace APIWeb.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductsController : ControllerBase
     {
         private readonly ContextoBD _context;
@@ -176,6 +178,8 @@ namespace APIWeb.Controllers
             return product;
         }
 
+        // PUT: api/Products/5
+        [Authorize(Roles = "Admin,Empleado")]
         // PUT: api/Products/5 (Recibe DTO fijo y sanitiza entrada)
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProduct(int id, [FromBody] ProductoRequestDto dto)
@@ -223,6 +227,8 @@ namespace APIWeb.Controllers
             return NoContent();
         }
 
+        // POST: api/Products
+        [Authorize(Roles = "Admin,Empleado")]
         // POST: api/Products (Recibe DTO fijo y sanitiza entrada)
         [HttpPost]
         public async Task<ActionResult<ProductoResponseDto>> PostProduct([FromBody] ProductoRequestDto dto)
@@ -275,7 +281,8 @@ namespace APIWeb.Controllers
             return CreatedAtAction(nameof(GetProduct), new { id = product.ProductId }, respuesta);
         }
 
-        // DELETE: api/Products/5 (Baja lógica en lugar de borrado físico)
+        // DELETE: api/Products/5
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {

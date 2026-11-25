@@ -167,6 +167,39 @@
         const form = document.querySelector('#frmFegistroProducto');
         let tablaProductosInstance = null;
 
+
+        // Obtener los datos de la sesión
+        const token = sessionStorage.getItem('token');
+        const rol = sessionStorage.getItem('rol');
+
+        // Si no hay sesión, regresar al login
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Encabezado para las peticiones protegidas
+        function obtenerHeaders() {
+            return {
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        // Verificar permisos
+        const esAdmin = rol === 'Admin';
+        const esEmpleado = rol === 'Empleado';
+        const puedeModificar = esAdmin || esEmpleado;
+
+
+        // Ocultar Agregar para clientes
+        const btnAgregar = document.getElementById('btnAbrirAgregar');
+
+        if (btnAgregar) {
+            btnAgregar.style.display = puedeModificar ? '' : 'none';
+        }
+        
+
+
+
         function mostrarEstadoCrud(mensaje, cargando = false, tipo = 'alert-secondary') {
             const barra = document.getElementById('barraEstadoCrud');
             const texto = document.getElementById('textoEstadoCrud');
@@ -196,6 +229,8 @@
         function cargarCategorias() {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${API_BASE}/Categories`, true);
+            //conecta tken con peticiones para cargar categorias
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
                     const data = JSON.parse(xhr.responseText);
@@ -220,6 +255,8 @@
         function cargarProveedores() {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${API_BASE}/Suppliers`, true);
+            //conecta token 
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
                     const data = JSON.parse(xhr.responseText);
@@ -291,13 +328,29 @@
                         title: 'Acciones',
                         data: null,
                         orderable: false,
+                        //boton depende de los roles
                         render: function (data, type, row) {
-                            return `
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-warning btn-editar" onclick="editarProducto(${row.productId}, this)">Editar</button>
-                                    <button class="btn btn-sm btn-danger btn-eliminar" onclick="eliminarProducto(${row.productId}, '${row.productName.replace(/'/g, "\\'")}', this)">Eliminar</button>
-                                </div>
-                            `;
+                            let botones = '';
+
+                            if (puedeModificar) {
+                                botones += `
+                                    <button class="btn btn-sm btn-warning btn-editar"
+                                        onclick="editarProducto(${row.productId}, this)">
+                                        Editar
+                                    </button>
+                                `;
+                            }
+
+                            if (esAdmin) {
+                                botones += `
+                                    <button class="btn btn-sm btn-danger btn-eliminar"
+                                        onclick="eliminarProducto(${row.productId}, '${row.productName.replace(/'/g, "\\'")}', this)">
+                                        Eliminar
+                                    </button>
+                                `;
+                            }
+
+                            return `<div class="d-flex gap-1">${botones}</div>`;
                         }
                     }
                 ],
@@ -313,6 +366,7 @@
             $.ajax({
                 url: `${API_BASE}/Products`,
                 method: 'GET',
+                headers: obtenerHeaders(),
                 dataType: 'json',
                 success: function (data) {
                     renderizarTablaProductos(data);
@@ -340,6 +394,7 @@
             $.ajax({
                 url: url,
                 method: 'GET',
+                headers: obtenerHeaders(),
                 dataType: 'json',
                 success: function (data) {
                     renderizarTablaProductos(data);
@@ -362,7 +417,9 @@
             boton.disabled = true;
             mostrarEstadoCrud(`Obteniendo datos del producto #${id} mediante Promesa...`, true, 'alert-info');
 
-            fetch(`${API_BASE}/Products/${id}`)
+            fetch(`${API_BASE}/Products/${id}`,{
+                headers: obtenerHeaders(),
+            })
                 .then(response => {
                     if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
                     return response.json();
@@ -402,6 +459,7 @@
             mostrarEstadoCrud(`Eliminando producto "${nombre}" mediante Promesa...`, true, 'alert-warning');
 
             fetch(`${API_BASE}/Products/${id}`, { method: 'DELETE' })
+            headers: obtenerHeaders() //estos indican que recibira JWT para si el usuario tiene permisos 
                 .then(response => {
                     if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
                     mostrarEstadoCrud(`Producto "${nombre}" eliminado correctamente.`, false, 'alert-success');
@@ -458,7 +516,9 @@
             try {
                 const response = await fetch(url, {
                     method: metodo,
+                    //enviar token JWT como JSON
                     headers: {
+                        ...obtenerHeaders(),
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
