@@ -1,19 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
+using APIWeb.Data;
+using APIWeb.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using APIWeb.Data;
-using APIWeb.Models;
 
 namespace APIWeb.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Cliente")]
     public class OrdersController : ControllerBase
     {
         private readonly ContextoBD _context;
@@ -23,99 +18,84 @@ namespace APIWeb.Controllers
             _context = context;
         }
 
-        public class AgregarCarritoDto
+        // Lo único que manda la página: producto y cantidad
+        public class AgregarCarritoRequest
         {
             public int ProductId { get; set; }
-            public short Quantity { get; set; }
+            public int Quantity { get; set; }
         }
 
-        private async Task<string?> ObtenerCustomerIdUsuarioAsync()
+        // El CustomerId sale del TOKEN, nunca de la página
+        private string? ObtenerCustomerId()
         {
-            var claimCustomer = User.FindFirst("CustomerId")?.Value
-                             ?? User.FindFirst("CustomerID")?.Value;
-            if (!string.IsNullOrWhiteSpace(claimCustomer))
-                return claimCustomer;
-
-            var nombreUsuario = User.Identity?.Name
-                             ?? User.FindFirst(ClaimTypes.Name)?.Value
-                             ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrWhiteSpace(nombreUsuario))
-                return null;
-
-            var usuario = await _context.Usuarios
-                .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.NombreUsuario == nombreUsuario || u.Email == nombreUsuario);
-
-            return usuario?.CustomerId;
+            return User.FindFirst("CustomerId")?.Value;
         }
 
         // GET: api/Orders/carrito
         [HttpGet("carrito")]
-        public async Task<ActionResult<object>> GetCarrito()
+        public async Task<IActionResult> VerCarrito()
         {
-            var customerId = await ObtenerCustomerIdUsuarioAsync();
-            if (string.IsNullOrWhiteSpace(customerId))
-                return BadRequest(new { mensaje = "El usuario autenticado no tiene un CustomerID asociado." });
+            var customerId = "test";//ObtenerCustomerId();
+            if (string.IsNullOrEmpty(customerId))
+                return BadRequest(new { mensaje = "Tu token no tiene CustomerId." });
 
             var carrito = await _context.Orders
                 .Include(o => o.OrderDetails)
-                    .ThenInclude(od => od.Product)
+                    .ThenInclude(d => d.Product)
                 .FirstOrDefaultAsync(o => o.CustomerId == customerId && o.Estado == "Carrito");
 
-            if (carrito == null || !carrito.OrderDetails.Any())
-            {
-                return Ok(new
-                {
-                    items = Array.Empty<object>(),
-                    total = 0m
-                });
-            }
+            if (carrito == null)
+                return Ok(new { items = new List<object>(), total = 0m });
 
-            var items = carrito.OrderDetails.Select(od => new
+            var items = carrito.OrderDetails.Select(d => new
             {
-                od.ProductId,
-                ProductName = od.Product != null ? od.Product.ProductName : $"Producto #{od.ProductId}",
-                od.UnitPrice,
-                od.Quantity,
-                Subtotal = od.UnitPrice * od.Quantity
+                productId = d.ProductId,
+                productName = d.Product.ProductName,
+                unitPrice = d.UnitPrice,
+                quantity = d.Quantity,
+                subtotal = d.UnitPrice * d.Quantity
             }).ToList();
 
-            decimal total = items.Sum(i => i.Subtotal);
+            decimal total = items.Sum(i => i.subtotal);   // total calculado en el servidor
 
-            return Ok(new
-            {
-                orderId = carrito.OrderId,
-                items,
-                total
-            });
+            return Ok(new { items, total });
         }
 
         // POST: api/Orders/carrito/agregar
         [HttpPost("carrito/agregar")]
-        public async Task<ActionResult<object>> AgregarAlCarrito([FromBody] AgregarCarritoDto dto)
+        public async Task<IActionResult> AgregarAlCarrito([FromBody] AgregarCarritoRequest dto)
         {
-            if (dto == null || dto.ProductId <= 0 || dto.Quantity <= 0)
-                return BadRequest(new { mensaje = "Producto o cantidad inválidos." });
+            var customerId = ObtenerCustomerId();
+            if (string.IsNullOrEmpty(customerId))
+                return BadRequest(new { mensaje = "Tu token no tiene CustomerId." });
 
-            var customerId = await ObtenerCustomerIdUsuarioAsync();
-            if (string.IsNullOrWhiteSpace(customerId))
-                return BadRequest(new { mensaje = "El usuario autenticado no tiene un CustomerID asociado." });
+            if (dto.Quantity <= 0)
+                return BadRequest(new { mensaje = "La cantidad debe ser mayor a 0." });
 
+            // Se consulta el producto en la BD (no se confía en la página)
             var producto = await _context.Products.FindAsync(dto.ProductId);
-            if (producto == null)
-                return NotFound(new { mensaje = "El producto no existe." });
+            if (producto == null || producto.Discontinued != false)
+                return BadRequest(new { mensaje = "El producto no existe o está descontinuado." });
 
-            if (producto.Discontinued == true)
-                return BadRequest(new { mensaje = "No se puede agregar un producto descontinuado." });
-
-            int stockDisponible = producto.UnitsInStock ?? 0;
-            if (stockDisponible <= 0)
+            int stock = producto.UnitsInStock ?? 0;
+            if (stock <= 0)
                 return BadRequest(new { mensaje = "El producto no tiene stock disponible." });
 
             var carrito = await _context.Orders
                 .Include(o => o.OrderDetails)
                 .FirstOrDefaultAsync(o => o.CustomerId == customerId && o.Estado == "Carrito");
+
+            OrderDetail? detalle = null;
+            int cantidadEnCarrito = 0;
+            if (carrito != null)
+            {
+                detalle = carrito.OrderDetails.FirstOrDefault(d => d.ProductId == dto.ProductId);
+                cantidadEnCarrito = detalle?.Quantity ?? 0;
+            }
+
+            long cantidadNueva = (long)cantidadEnCarrito + dto.Quantity;
+            if (cantidadNueva > stock)
+                return BadRequest(new { mensaje = $"Stock insuficiente. Disponible: {stock}. Ya tienes {cantidadEnCarrito} en tu carrito." });
 
             if (carrito == null)
             {
@@ -126,31 +106,22 @@ namespace APIWeb.Controllers
                     Estado = "Carrito"
                 };
                 _context.Orders.Add(carrito);
-                await _context.SaveChangesAsync();
             }
 
-            var detalleExistente = carrito.OrderDetails
-                .FirstOrDefault(od => od.ProductId == dto.ProductId);
-
-            int cantidadTotalDeseada = (detalleExistente?.Quantity ?? 0) + dto.Quantity;
-            if (cantidadTotalDeseada > stockDisponible)
-                return BadRequest(new { mensaje = $"Stock insuficiente. Disponible: {stockDisponible} uds." });
-
-            if (detalleExistente != null)
+            if (detalle == null)
             {
-                detalleExistente.Quantity = (short)cantidadTotalDeseada;
-                detalleExistente.UnitPrice = producto.UnitPrice ?? 0m;
+                carrito.OrderDetails.Add(new OrderDetail
+                {
+                    ProductId = producto.ProductId,
+                    UnitPrice = producto.UnitPrice ?? 0m,   // precio real de la BD
+                    Quantity = dto.Quantity,
+                    Discount = 0
+                });
             }
             else
             {
-                _context.OrderDetails.Add(new OrderDetail
-                {
-                    OrderId = carrito.OrderId,
-                    ProductId = producto.ProductId,
-                    UnitPrice = producto.UnitPrice ?? 0m,
-                    Quantity = dto.Quantity,
-                    Discount = 0f
-                });
+                detalle.Quantity = (int)cantidadNueva;
+                detalle.UnitPrice = producto.UnitPrice ?? 0m;
             }
 
             await _context.SaveChangesAsync();
@@ -160,48 +131,46 @@ namespace APIWeb.Controllers
 
         // POST: api/Orders/comprar
         [HttpPost("comprar")]
-        public async Task<ActionResult<object>> ConfirmarCompra()
+        public async Task<IActionResult> Comprar()
         {
-            var customerId = await ObtenerCustomerIdUsuarioAsync();
-            if (string.IsNullOrWhiteSpace(customerId))
-                return BadRequest(new { mensaje = "El usuario autenticado no tiene un CustomerID asociado." });
+            var customerId = ObtenerCustomerId();
+            if (string.IsNullOrEmpty(customerId))
+                return BadRequest(new { mensaje = "Tu token no tiene CustomerId." });
+
+            await using var transaccion = await _context.Database.BeginTransactionAsync();
 
             var carrito = await _context.Orders
                 .Include(o => o.OrderDetails)
-                    .ThenInclude(od => od.Product)
+                    .ThenInclude(d => d.Product)
                 .FirstOrDefaultAsync(o => o.CustomerId == customerId && o.Estado == "Carrito");
 
-            if (carrito == null || !carrito.OrderDetails.Any())
+            if (carrito == null || carrito.OrderDetails.Count == 0)
                 return BadRequest(new { mensaje = "Tu carrito está vacío." });
 
-            foreach (var detalle in carrito.OrderDetails)
+            foreach (var d in carrito.OrderDetails)
             {
-                if (detalle.Product == null || detalle.Product.Discontinued == true)
-                    return BadRequest(new { mensaje = $"El producto #{detalle.ProductId} ya no está disponible." });
+                if (d.Product.Discontinued != false)
+                    return BadRequest(new { mensaje = $"'{d.Product.ProductName}' ya no está disponible." });
 
-                int stock = detalle.Product.UnitsInStock ?? 0;
-                if (detalle.Quantity > stock)
-                    return BadRequest(new { mensaje = $"Stock insuficiente para '{detalle.Product.ProductName}' (disponible: {stock})." });
+                int stock = d.Product.UnitsInStock ?? 0;
+                if (d.Quantity > stock)
+                    return BadRequest(new { mensaje = $"Stock insuficiente de '{d.Product.ProductName}'. Disponible: {stock}." });
             }
 
             decimal total = 0m;
-            foreach (var detalle in carrito.OrderDetails)
+            foreach (var d in carrito.OrderDetails)
             {
-                detalle.Product!.UnitsInStock = (short)((detalle.Product.UnitsInStock ?? 0) - detalle.Quantity);
-                total += detalle.UnitPrice * detalle.Quantity;
+                d.Product.UnitsInStock = (d.Product.UnitsInStock ?? 0) - d.Quantity;
+                total += d.UnitPrice * d.Quantity;
             }
 
-            carrito.OrderDate = DateTime.Now;
             carrito.Estado = "Comprado";
+            carrito.OrderDate = DateTime.Now;
 
             await _context.SaveChangesAsync();
+            await transaccion.CommitAsync();
 
-            return Ok(new
-            {
-                mensaje = "¡Compra confirmada con éxito!",
-                orderId = carrito.OrderId,
-                total
-            });
+            return Ok(new { mensaje = "¡Compra realizada con éxito!", orderId = carrito.OrderId, total });
         }
     }
 }
