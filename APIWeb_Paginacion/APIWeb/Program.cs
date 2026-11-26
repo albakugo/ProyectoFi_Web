@@ -1,92 +1,67 @@
-using Microsoft.EntityFrameworkCore;
-using APIWeb.Data;
-
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using System.Security.Claims;
-
+using System.Text;
+using APIWeb.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<ContextoBD>(options => options.UseMySQL(builder.Configuration.GetConnectionString("ConexionMySQL")));
+// Conexión a MySQL
+var connectionString = builder.Configuration.GetConnectionString("ConexionMySQL")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ContextoBD>(options =>
+    options.UseMySQL(connectionString!));
 
-
-
-// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-//// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-
-//seguridad
+// CORS solo estas páginas pueden llamar a la API
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PoliticaSegura", policy =>
     {
-        //solo acepta la direccion origins
-        policy.WithOrigins("http://127.0.0.1:5500")
-                //permite POST, GET..
+        //policy.WithOrigins("http://127.0.0.1:5500", "http://localhost:5500")
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              //permite jwt autorizacion 
               .AllowAnyHeader();
     });
 });
 
-
-// Configuración de autenticación JWT
-//busca la clave en .json
 var claveSecreta = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("No se encontró la clave JWT.");
-
+    ?? throw new InvalidOperationException("No se encontró la clave JWT en appsettings.json.");
 
 builder.Services.AddAuthentication(options =>
 {
-    //indica utilizar JWT para identificar
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    //indica JWT seera elmecanismo
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-
-    //valida el token 
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        //quien emitio
         ValidateIssuer = true,
-        //para quien
         ValidateAudience = true,
-        //que no expire token
         ValidateLifetime = true,
-        //que sea valido
         ValidateIssuerSigningKey = true,
-
-        //validar que si coincidan 
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
-
-        //comprobacion
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(claveSecreta)
-        ),
-        //evita que tenga tiempo demas despues de que expire
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(claveSecreta)),
         ClockSkew = TimeSpan.Zero,
-
-        //que tipo de claim tiene el rol
         RoleClaimType = ClaimTypes.Role,
     };
 });
 
-
+builder.Services.AddAuthorization();
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
-//capturar excepciones no controladas
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.Use(async (context, next) =>
 {
     try
@@ -102,7 +77,6 @@ app.Use(async (context, next) =>
             throw;
         }
 
-        //limpiar, devolver JSON
         context.Response.Clear();
         context.Response.StatusCode = 500;
         context.Response.ContentType = "application/json";
@@ -114,41 +88,26 @@ app.Use(async (context, next) =>
     }
 });
 
-
-
-//evitar otras paginas entren a la API o engaños
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Append("X-Frame-Options", "DENY");
-    context.Response.Headers.Append(
-        "Content-Security-Policy",
-        "frame-ancestors 'none';"
-    );
-
+    context.Response.Headers.Append("Content-Security-Policy", "frame-ancestors 'none';");
     await next();
 });
 
-
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment()) 
+if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
-    app.UseSwaggerUI( c =>
-    {        
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Mi API");
-        //Indicar la raiz como URL que responderá con la documentación de swagger
-        c.RoutePrefix = "";
-    });
+    app.UseSwaggerUI();
 }
+
 app.UseHttpsRedirection();
 
 app.UseCors("PoliticaSegura");
 
-app.UseAuthentication(); //identifica quien esta realizando peticion
-
-app.UseAuthorization(); //comprueba si el usuario tiene permiso
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.Run();

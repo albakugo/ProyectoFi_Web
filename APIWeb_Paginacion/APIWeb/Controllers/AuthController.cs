@@ -60,6 +60,8 @@ namespace APIWeb.Controllers
                 });
             }
 
+
+
             // Eliminar el CAPTCHA para evitar que se reutilice
             _cache.Remove(claveCaptcha);
 
@@ -72,6 +74,19 @@ namespace APIWeb.Controllers
                 });
             }
 
+            try
+            {
+                            var usuario2 = await _context.Usuarios.FirstOrDefaultAsync(u =>
+                u.NombreUsuario == request.Usuario ||
+                u.Email == request.Usuario);
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new
+                {
+                    mensaje = ex.Message
+                });
+            }
 
             //busca al usuario en BD con gmail, nom o correo
             var usuario = await _context.Usuarios.FirstOrDefaultAsync(u =>
@@ -185,7 +200,9 @@ namespace APIWeb.Controllers
                     usuario.NombreUsuario),
 
                 new Claim(ClaimTypes.Role,
-                    usuario.Rol)
+                    usuario.Rol),
+
+                new Claim("CustomerId", usuario.CustomerID ?? "")
             };
 
             //crea clave para token

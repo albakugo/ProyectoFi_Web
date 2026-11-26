@@ -1,8 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using APIWeb.Data;
@@ -24,7 +20,7 @@ namespace APIWeb.Controllers
             _context = context;
         }
 
-        // GET: api/Products (Para el CRUD de administración: devuelve todos los productos con DTO fijo)
+        // GET: api/Products 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProductoResponseDto>>> GetProducts()
         {
@@ -45,7 +41,7 @@ namespace APIWeb.Controllers
                 .ToListAsync();
         }
 
-        // GET: api/Products/activos (Para clientes y combos de ventas: solo Discontinued == false)
+        // GET: api/Products/activos 
         [HttpGet("activos")]
         public async Task<ActionResult<IEnumerable<ProductoResponseDto>>> GetProductsActivos()
         {
@@ -67,7 +63,7 @@ namespace APIWeb.Controllers
                 .ToListAsync();
         }
 
-        // GET: api/Products/BySupplier/5 (Solo productos activos del proveedor)
+        // GET: api/Products/BySupplier/5 
         [HttpGet("BySupplier/{supplierId}")]
         public async Task<ActionResult<IEnumerable<ProductoResponseDto>>> GetProductsBySupplier(int supplierId)
         {
@@ -90,7 +86,7 @@ namespace APIWeb.Controllers
         }
 
         // GET: api/Products/paginado?busqueda=chai&pagina=1&tamanio=12
-        // Vista de Cards para clientes: filtra obligatoriamente Discontinued == false
+       
         [HttpGet("paginado")]
         [AllowAnonymous]
         public async Task<ActionResult<object>> GetProductsPaginados(
@@ -102,7 +98,7 @@ namespace APIWeb.Controllers
             if (tamanio < 1) tamanio = 12;
             if (tamanio > 48) tamanio = 48;
 
-            // Filtro obligatorio para clientes: nunca mostrar descontinuados
+            // Filtro obligatorio para clientes
             var query = _context.Products
                 .Where(p => p.Discontinued == false)
                 .AsQueryable();
@@ -150,8 +146,7 @@ namespace APIWeb.Controllers
             });
         }
 
-        // GET: api/Products/5 (Devuelve DTO fijo)
-        [HttpGet("{id}")]
+        // GET: api/Products/5 
         public async Task<ActionResult<ProductoResponseDto>> GetProduct(int id)
         {
             var product = await _context.Products
@@ -181,7 +176,7 @@ namespace APIWeb.Controllers
 
         // PUT: api/Products/5
         [Authorize(Roles = "Admin,Empleado")]
-        // PUT: api/Products/5 (Recibe DTO fijo y sanitiza entrada)
+        // PUT: api/Products/5 
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProduct(int id, [FromBody] ProductoRequestDto dto)
         {
@@ -230,7 +225,7 @@ namespace APIWeb.Controllers
 
         // POST: api/Products
         [Authorize(Roles = "Admin,Empleado")]
-        // POST: api/Products (Recibe DTO fijo y sanitiza entrada)
+        // POST: api/Products 
         [HttpPost]
         public async Task<ActionResult<ProductoResponseDto>> PostProduct([FromBody] ProductoRequestDto dto)
         {
