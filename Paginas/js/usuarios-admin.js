@@ -1,46 +1,5 @@
 const API_BASE_URL = "https://localhost:7214/api";
 
-// --- Control de Acceso por URL (Guard) ---
-function verificarAccesoPagina(rolesPermitidos) {
-    const token = localStorage.getItem("token");
-    if (!token) {
-        window.location.replace("login.html");
-        return null;
-    }
-
-    try {
-        // Decodificar el payload del JWT
-        const payloadBase64 = token.split(".")[1];
-        const payloadJson = atob(payloadBase64.replace(/-/g, "+").replace(/_/g, "/"));
-        const payload = JSON.parse(payloadJson);
-
-        // Revisar expiracion del token
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-            localStorage.removeItem("token");
-            window.location.replace("login.html");
-            return null;
-        }
-
-        // Obtener el rol
-        const rolUsuario =
-            payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-            payload.role ||
-            payload.Rol;
-
-        if (!rolUsuario || !rolesPermitidos.includes(rolUsuario)) {
-            alert("No tienes permisos para acceder a esta sección.");
-            window.location.replace("index.html");
-            return null;
-        }
-
-        return { token, rol: rolUsuario };
-    } catch {
-        localStorage.removeItem("token");
-        window.location.replace("login.html");
-        return null;
-    }
-}
-
 // --- Utilidades Seguras (Mensajes y Anti-XSS) ---
 function mostrarMensaje(contenedorId, texto, tipo = "info") {
     const contenedor = document.getElementById(contenedorId);

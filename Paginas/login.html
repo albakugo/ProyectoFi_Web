@@ -208,8 +208,12 @@
                 sessionStorage.setItem("rol", data.rol);
                 sessionStorage.setItem("usuario", data.usuario);
 
-                //redirige al CRUD de productos
-                window.location.href = "index.html";
+                if (data.rol === "Admin" || data.rol === "Empleado") {
+                    //redirige al CRUD de productos
+                    window.location.href = "index.html";
+                } else {
+                    window.location.href = "catalogo.html";
+                }
 
             } catch (error) {
 

@@ -4,7 +4,7 @@
  */
 (function () {
     function obtenerSesionActual() {
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token") || localStorage.getItem("token");
         if (!token) return null;
 
         try {
@@ -13,6 +13,7 @@
             const payload = JSON.parse(payloadJson);
 
             if (payload.exp && Date.now() >= payload.exp * 1000) {
+                sessionStorage.clear();
                 localStorage.removeItem("token");
                 return null;
             }
@@ -21,26 +22,39 @@
                 payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
                 payload.role ||
                 payload.Rol ||
+                sessionStorage.getItem("rol") ||
                 "";
 
             const usuario =
                 payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
                 payload.unique_name ||
                 payload.sub ||
+                sessionStorage.getItem("usuario") ||
                 "";
 
-            return { token, rol, usuario, payload };
+            const usuarioId =
+                payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"] ||
+                payload.UsuarioId ||
+                payload.id ||
+                sessionStorage.getItem("usuarioId") ||
+                "";
+
+            return { token, rol, usuario, usuarioId, payload };
+            
         } catch {
+            sessionStorage.clear();
             localStorage.removeItem("token");
             return null;
         }
     }
 
-    // Exponer utilidades globales para navbar.js y otros scripts
     window.AuthGuard = {
         obtenerSesionActual,
         cerrarSesion() {
+            sessionStorage.clear();
             localStorage.removeItem("token");
+            localStorage.removeItem("rol");
+            localStorage.removeItem("usuario");
             window.location.replace("login.html");
         },
         verificarRoles(rolesPermitidos) {
@@ -60,13 +74,11 @@
         }
     };
 
-    // Validación automática mediante atributo data-roles en la etiqueta <script> del <head>
-    // Ejemplo: <script src="js/auth-guard.js" data-roles="Admin,Empleado"></script>
     const scriptActual = document.currentScript;
     if (scriptActual && scriptActual.hasAttribute("data-roles")) {
         const attrRoles = scriptActual.getAttribute("data-roles").trim();
         if (attrRoles === "*") {
-            window.AuthGuard.verificarRoles([]); // Cualquier usuario autenticado
+            window.AuthGuard.verificarRoles([]);
         } else if (attrRoles.length > 0) {
             const listaRoles = attrRoles.split(",").map(r => r.trim());
             window.AuthGuard.verificarRoles(listaRoles);

@@ -15,7 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
         { texto: "Catálogo", href: "catalogo.html", roles: ["Publico", "Cliente", "Empleado", "Admin"] },
         { texto: "Mi Carrito / Pedidos", href: "carrito.html", roles: ["Cliente"] },
         { texto: "Gestión de Productos", href: "index.html", roles: ["Admin", "Empleado"] },
-        { texto: "Usuarios y Clientes", href: "usuarios-admin.html", roles: ["Admin"] }
+        { texto: "Clientes", href: "clientes.html", roles: ["Admin", "Empleado"] },
+        { texto: "Empleados y Roles", href: "empleados.html", roles: ["Admin"] }
     ];
 
     const nav = document.createElement("nav");
@@ -60,6 +61,17 @@ document.addEventListener("DOMContentLoaded", () => {
     zonaUsuario.className = "d-flex align-items-center gap-2";
 
     if (sesion) {
+        const textoIdentidad = sesion.usuario
+            ? (sesion.usuarioId ? `${sesion.usuario} (ID: ${sesion.usuarioId})` : sesion.usuario)
+            : (sesion.usuarioId ? `ID: ${sesion.usuarioId}` : "");
+
+        if (textoIdentidad) {
+            const saludo = document.createElement("span");
+            saludo.className = "text-light small fw-semibold me-1";
+            saludo.textContent = `Hola, ${textoIdentidad}`;
+            zonaUsuario.appendChild(saludo);
+        }
+
         const badge = document.createElement("span");
         badge.className = "badge bg-info text-dark";
         badge.textContent = `Rol: ${sesion.rol}`;
