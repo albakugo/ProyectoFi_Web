@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace APIWeb.Controllers
-{
     // SOLO PARA PRUEBAS
+{
     [Route("api/[controller]")]
     [ApiController]
     public class TokenPruebaController : ControllerBase
