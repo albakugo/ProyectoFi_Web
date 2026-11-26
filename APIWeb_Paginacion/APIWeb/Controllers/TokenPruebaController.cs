@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace APIWeb.Controllers
 {
-    // SOLO PARA PRUEBAS: borrar cuando exista el login real
+    // SOLO PARA PRUEBAS
     [Route("api/[controller]")]
     [ApiController]
     public class TokenPruebaController : ControllerBase
@@ -28,7 +28,7 @@ namespace APIWeb.Controllers
         [HttpGet]
         public async Task<IActionResult> Generar(string customerId = "ALFKI")
         {
-            // Fuera de Development no existe
+            
             if (!_env.IsDevelopment()) return NotFound();
 
             bool existe = await _context.Customers.AnyAsync(c => c.CustomerId == customerId);

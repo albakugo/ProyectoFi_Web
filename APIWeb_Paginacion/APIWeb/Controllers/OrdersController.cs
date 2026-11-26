@@ -18,14 +18,12 @@ namespace APIWeb.Controllers
             _context = context;
         }
 
-        // Lo único que manda la página: producto y cantidad
         public class AgregarCarritoRequest
         {
             public int ProductId { get; set; }
             public int Quantity { get; set; }
         }
 
-        // El CustomerId sale del TOKEN, nunca de la página
         private string? ObtenerCustomerId()
         {
             return User.FindFirst("CustomerId")?.Value;
@@ -35,7 +33,7 @@ namespace APIWeb.Controllers
         [HttpGet("carrito")]
         public async Task<IActionResult> VerCarrito()
         {
-            var customerId = "test";//ObtenerCustomerId();
+            var customerId = ObtenerCustomerId();
             if (string.IsNullOrEmpty(customerId))
                 return BadRequest(new { mensaje = "Tu token no tiene CustomerId." });
 
@@ -56,7 +54,7 @@ namespace APIWeb.Controllers
                 subtotal = d.UnitPrice * d.Quantity
             }).ToList();
 
-            decimal total = items.Sum(i => i.subtotal);   // total calculado en el servidor
+            decimal total = items.Sum(i => i.subtotal);   
 
             return Ok(new { items, total });
         }
@@ -72,11 +70,11 @@ namespace APIWeb.Controllers
             if (dto.Quantity <= 0)
                 return BadRequest(new { mensaje = "La cantidad debe ser mayor a 0." });
 
-            // Se consulta el producto en la BD (no se confía en la página)
+            // Se consulta el producto en la BD 
             var producto = await _context.Products.FindAsync(dto.ProductId);
             if (producto == null || producto.Discontinued != false)
                 return BadRequest(new { mensaje = "El producto no existe o está descontinuado." });
-
+            
             int stock = producto.UnitsInStock ?? 0;
             if (stock <= 0)
                 return BadRequest(new { mensaje = "El producto no tiene stock disponible." });
@@ -113,7 +111,7 @@ namespace APIWeb.Controllers
                 carrito.OrderDetails.Add(new OrderDetail
                 {
                     ProductId = producto.ProductId,
-                    UnitPrice = producto.UnitPrice ?? 0m,   // precio real de la BD
+                    UnitPrice = producto.UnitPrice ?? 0m,   
                     Quantity = dto.Quantity,
                     Discount = 0
                 });
@@ -124,7 +122,15 @@ namespace APIWeb.Controllers
                 detalle.UnitPrice = producto.UnitPrice ?? 0m;
             }
 
-            await _context.SaveChangesAsync();
+            try
+{
+    await _context.SaveChangesAsync();
+}
+catch (Exception ex)
+{
+    // Muestra un error temporal
+    return StatusCode(500, new { mensaje = ex.InnerException?.Message ?? ex.Message });
+}
 
             return Ok(new { mensaje = $"Se agregó '{producto.ProductName}' al carrito." });
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using APIWeb.Models;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +32,7 @@ public partial class ContextoBD : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        
         modelBuilder.Entity<Category>(entity =>
         {
             entity.HasKey(e => e.CategoryId).HasName("PRIMARY");
@@ -179,8 +180,8 @@ public partial class ContextoBD : DbContext
             entity.Property(e => e.UnitPrice).HasPrecision(19, 4);
 
             entity.HasOne(d => d.Order).WithMany(p => p.OrderDetails)
-            .HasForeignKey(d => d.OrderId)
-            .HasConstraintName("order details_ibfk_1");
+                .HasForeignKey(d => d.OrderId)
+                .HasConstraintName("order details_ibfk_1");
 
             entity.HasOne(d => d.Product).WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.ProductId)
@@ -272,16 +273,17 @@ public partial class ContextoBD : DbContext
             entity.Property(e => e.Email).HasMaxLength(100);
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
             entity.Property(e => e.Rol).HasMaxLength(20);
-            entity.Property(e => e.CustomerId)
+            entity.Property(e => e.CustomerID)
                 .HasMaxLength(5)
                 .HasColumnName("CustomerID");
-            entity.Property(e => e.EmployeeId).HasColumnName("EmployeeID");
+            entity.Property(e => e.EmployeeID).HasColumnName("EmployeeID");
             entity.Property(e => e.BloqueadoHasta).HasColumnType("datetime");
             entity.Property(e => e.Activo).HasDefaultValueSql("'1'");
         });
 
         OnModelCreatingPartial(modelBuilder);
     }
+
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
 }

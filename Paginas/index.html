@@ -8,32 +8,13 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <script src="js/auth-guard.js" data-roles="Admin,Empleado"></script>
 </head>
 
 <body>
-    <!-- Barra de navegacion -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="index.html">Gestión de Northwind</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNorthwind"
-                aria-controls="navbarNorthwind" aria-expanded="false" aria-label="Alternar navegación">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNorthwind">
-                <div class="navbar-nav ms-auto align-items-lg-center">
-                    <a class="nav-link active" href="index.html">Productos</a>
-                    <a class="nav-link" href="catalogo.html">Catálogo</a>
-                    <a class="nav-link" href="clientes.html">Clientes</a>
-                    <a class="nav-link" href="empleados.html">Empleados y Roles</a>
-                    <button type="button" id="btnCerrarSesion" class="btn btn-sm btn-outline-light ms-lg-3 mt-2 mt-lg-0">
-                        Cerrar sesión
-                    </button>
-                </div>
-            </div>
-        </div>
-    </nav>
 
     <!-- Modal Registro / Editar -->
+    <div id="navbarPrincipal"></div>
     <div class="modal fade" id="registroProducto" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1"
         aria-labelledby="staticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
@@ -157,10 +138,46 @@
     <script src="https://cdn.datatables.net/2.1.8/js/dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/2.1.8/js/dataTables.bootstrap5.min.js"></script>
 
+    <script src="js/seguridad-ui.js"></script>
+    <script src="js/navbar.js"></script>
+
     <script>
         const API_BASE = 'https://localhost:7214/api';
         const form = document.querySelector('#frmFegistroProducto');
         let tablaProductosInstance = null;
+
+
+        // Obtener los datos de la sesión
+        const token = sessionStorage.getItem('token');
+        const rol = sessionStorage.getItem('rol');
+
+        // Si no hay sesión, regresar al login
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        // Encabezado para las peticiones protegidas
+        function obtenerHeaders() {
+            return {
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        // Verificar permisos
+        const esAdmin = rol === 'Admin';
+        const esEmpleado = rol === 'Empleado';
+        const puedeModificar = esAdmin || esEmpleado;
+
+
+        // Ocultar Agregar para clientes
+        const btnAgregar = document.getElementById('btnAbrirAgregar');
+
+        if (btnAgregar) {
+            btnAgregar.style.display = puedeModificar ? '' : 'none';
+        }
+        
+
+
 
         function mostrarEstadoCrud(mensaje, cargando = false, tipo = 'alert-secondary') {
             const barra = document.getElementById('barraEstadoCrud');
@@ -191,15 +208,22 @@
         function cargarCategorias() {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${API_BASE}/Categories`, true);
+            //conecta tken con peticiones para cargar categorias
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
                     const data = JSON.parse(xhr.responseText);
                     const selectCategoria = document.getElementById('CategoryId');
-                    selectCategoria.innerHTML = '<option value="0" selected>Selecciona una categoría...</option>';
+
+                    SeguridadUI.limpiarContenedor(selectCategoria);
+                    const optionDefault = SeguridadUI.crearElementoTexto('option', 'Selecciona una categoría...');
+                    optionDefault.value = '0';
+                    optionDefault.selected = true;
+                    selectCategoria.appendChild(optionDefault);
+
                     data.forEach(categoria => {
-                        const option = document.createElement('option');
+                        const option = SeguridadUI.crearElementoTexto('option', categoria.categoryName);
                         option.value = categoria.categoryId || categoria.categoryID;
-                        option.textContent = categoria.categoryName;
                         selectCategoria.appendChild(option);
                     });
                 }
@@ -210,30 +234,39 @@
         function cargarProveedores() {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', `${API_BASE}/Suppliers`, true);
+            //conecta token 
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300) {
                     const data = JSON.parse(xhr.responseText);
                     const selectModal = document.getElementById('SupplierId');
                     const selectFiltro = document.getElementById('filtroProveedor');
 
-                    selectModal.innerHTML = '<option value="0" selected>Selecciona un proveedor...</option>';
+                    SeguridadUI.limpiarContenedor(selectModal);
+                    const optionModalDefault = SeguridadUI.crearElementoTexto('option', 'Selecciona un proveedor...');
+                    optionModalDefault.value = '0';
+                    optionModalDefault.selected = true;
+                    selectModal.appendChild(optionModalDefault);
+
                     if (selectFiltro) {
-                        selectFiltro.innerHTML = '<option value="0" selected>-- Todos los proveedores --</option>';
+                        SeguridadUI.limpiarContenedor(selectFiltro);
+                        const optionFiltroDefault = SeguridadUI.crearElementoTexto('option', '-- Todos los proveedores --');
+                        optionFiltroDefault.value = '0';
+                        optionFiltroDefault.selected = true;
+                        selectFiltro.appendChild(optionFiltroDefault);
                     }
 
                     data.forEach(proveedor => {
                         const id = proveedor.supplierId || proveedor.supplierID;
                         const nombre = proveedor.companyName;
 
-                        const optionModal = document.createElement('option');
+                        const optionModal = SeguridadUI.crearElementoTexto('option', nombre);
                         optionModal.value = id;
-                        optionModal.textContent = nombre;
                         selectModal.appendChild(optionModal);
 
                         if (selectFiltro) {
-                            const optionFiltro = document.createElement('option');
+                            const optionFiltro = SeguridadUI.crearElementoTexto('option', nombre);
                             optionFiltro.value = id;
-                            optionFiltro.textContent = nombre;
                             selectFiltro.appendChild(optionFiltro);
                         }
                     });
@@ -252,9 +285,9 @@
 
             tablaProductosInstance = new DataTable('#listaProductos', {
                 columns: [
-                    { title: 'Producto', data: 'productName' },
-                    { title: 'Proveedor', data: 'supplierName' },
-                    { title: 'Categoría', data: 'categoryName' },
+                    { title: 'Producto', data: 'productName', render: SeguridadUI.renderDataTableTexto() },
+                    { title: 'Proveedor', data: 'supplierName', render: SeguridadUI.renderDataTableTexto() },
+                    { title: 'Categoría', data: 'categoryName', render: SeguridadUI.renderDataTableTexto() },
                     {
                         title: 'Precio',
                         data: 'unitPrice',
@@ -274,13 +307,29 @@
                         title: 'Acciones',
                         data: null,
                         orderable: false,
+                        //boton depende de los roles
                         render: function (data, type, row) {
-                            return `
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-warning btn-editar" onclick="editarProducto(${row.productId}, this)">Editar</button>
-                                    <button class="btn btn-sm btn-danger btn-eliminar" onclick="eliminarProducto(${row.productId}, '${row.productName.replace(/'/g, "\\'")}', this)">Eliminar</button>
-                                </div>
-                            `;
+                            let botones = '';
+
+                            if (puedeModificar) {
+                                botones += `
+                                    <button class="btn btn-sm btn-warning btn-editar"
+                                        onclick="editarProducto(${row.productId}, this)">
+                                        Editar
+                                    </button>
+                                `;
+                            }
+
+                            if (esAdmin) {
+                                botones += `
+                                    <button class="btn btn-sm btn-danger btn-eliminar"
+                                        onclick="eliminarProducto(${row.productId}, '${row.productName.replace(/'/g, "\\'")}', this)">
+                                        Eliminar
+                                    </button>
+                                `;
+                            }
+
+                            return `<div class="d-flex gap-1">${botones}</div>`;
                         }
                     }
                 ],
@@ -296,6 +345,7 @@
             $.ajax({
                 url: `${API_BASE}/Products`,
                 method: 'GET',
+                headers: obtenerHeaders(),
                 dataType: 'json',
                 success: function (data) {
                     renderizarTablaProductos(data);
@@ -323,6 +373,7 @@
             $.ajax({
                 url: url,
                 method: 'GET',
+                headers: obtenerHeaders(),
                 dataType: 'json',
                 success: function (data) {
                     renderizarTablaProductos(data);
@@ -345,7 +396,9 @@
             boton.disabled = true;
             mostrarEstadoCrud(`Obteniendo datos del producto #${id} mediante Promesa...`, true, 'alert-info');
 
-            fetch(`${API_BASE}/Products/${id}`)
+            fetch(`${API_BASE}/Products/${id}`,{
+                headers: obtenerHeaders(),
+            })
                 .then(response => {
                     if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
                     return response.json();
@@ -379,23 +432,26 @@
         }
 
         function eliminarProducto(id, nombre, boton) {
-            if (!confirm(`¿Seguro que deseas eliminar "${nombre}"?`)) return;
+         if (!confirm(`¿Seguro que deseas eliminar "${nombre}"?`)) return;
 
-            boton.disabled = true;
-            mostrarEstadoCrud(`Eliminando producto "${nombre}" mediante Promesa...`, true, 'alert-warning');
+         boton.disabled = true;
+         mostrarEstadoCrud(`Eliminando producto "${nombre}" mediante Promesa...`, true, 'alert-warning');
 
-            fetch(`${API_BASE}/Products/${id}`, { method: 'DELETE' })
-                .then(response => {
-                    if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
-                    mostrarEstadoCrud(`Producto "${nombre}" eliminado correctamente.`, false, 'alert-success');
-                    cargarProductos();
-                })
-                .catch(error => {
-                    console.error('Error en Promesa eliminarProducto:', error);
-                    mostrarEstadoCrud(`Error al eliminar "${nombre}".`, false, 'alert-danger');
-                    boton.disabled = false;
-                });
-        }
+         fetch(`${API_BASE}/Products/${id}`, {
+             method: 'DELETE',
+             headers: obtenerHeaders()
+         })
+             .then(response => {
+                 if (!response.ok) throw new Error(`Error del servidor (${response.status})`);
+                 mostrarEstadoCrud(`Producto "${nombre}" eliminado correctamente.`, false, 'alert-success');
+                 cargarProductos();
+             })
+             .catch(error => {
+                 console.error('Error en Promesa eliminarProducto:', error);
+                 mostrarEstadoCrud(`Error al eliminar "${nombre}".`, false, 'alert-danger');
+                 boton.disabled = false;
+             });
+     }
 
         // -------------------------------------------------------------------------
         // FETCH con ASYNC / AWAIT (en Crear y Actualizar)
@@ -441,7 +497,9 @@
             try {
                 const response = await fetch(url, {
                     method: metodo,
+                    //enviar token JWT como JSON
                     headers: {
+                        ...obtenerHeaders(),
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
@@ -480,6 +538,7 @@
         cargarCategorias();
         cargarProveedores();
     </script>
+
 </body>
 
 </html>
