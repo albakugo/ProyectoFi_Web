@@ -12,6 +12,8 @@ using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Cryptography;
 
+using APIWeb.Helpers;
+
 namespace APIWeb.Controllers
 {
     [Route("api/[controller]")]
@@ -222,6 +224,16 @@ namespace APIWeb.Controllers
         public async Task<IActionResult> RegistroCliente(RegistroClienteRequest request)
         {
             string nombreUsuario = request.NombreUsuario.Trim();
+
+            if (SanitizadorHelper.ContieneCodigoMalicioso(request.NombreUsuario) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(request.Email) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(request.Nombre) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(request.Empresa) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(request.Telefono))
+            {
+                return BadRequest(new { mensaje = "Los datos de registro contienen caracteres o código no permitido." });
+            }
+
             string email = request.Email.Trim();
             string nombre = request.Nombre.Trim();
             string empresa = request.Empresa.Trim();

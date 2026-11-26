@@ -3,6 +3,7 @@ using APIWeb.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using APIWeb.Helpers;
 
 namespace APIWeb.Controllers
 {
@@ -28,6 +29,11 @@ namespace APIWeb.Controllers
                 return BadRequest(new { mensaje = "Ingresa un criterio de búsqueda válido (mínimo 2 caracteres)." });
             }
 
+            if (SanitizadorHelper.ContieneCodigoMalicioso(filtro.Criterio))
+            {
+                return BadRequest(new { mensaje = "El criterio de búsqueda contiene caracteres o código no permitido." });
+            }
+
             string termino = filtro.Criterio.Trim().ToLower();
 
             // Limita resultados a maximo 15 coincidencias para evitar extraccion masiva
@@ -41,8 +47,8 @@ namespace APIWeb.Controllers
 
             var idsClientes = clientes.Select(c => c.CustomerId).ToList();
             var correosPorCliente = await _context.Usuarios
-                .Where(u => u.CustomerId != null && idsClientes.Contains(u.CustomerId))
-                .ToDictionaryAsync(u => u.CustomerId!, u => u.Email);
+                .Where(u => u.CustomerID != null && idsClientes.Contains(u.CustomerID))
+                .ToDictionaryAsync(u => u.CustomerID!, u => u.Email);
 
             var resultado = clientes.Select(c =>
             {
@@ -82,7 +88,7 @@ namespace APIWeb.Controllers
             }
 
             var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.CustomerId == cliente.CustomerId);
+                .FirstOrDefaultAsync(u => u.CustomerID == cliente.CustomerId);
 
             var dto = new ClienteConsultaDto
             {
@@ -106,6 +112,15 @@ namespace APIWeb.Controllers
             if (!ModelState.IsValid)
             {
                 return BadRequest(new { mensaje = "Los datos enviados no cumplen con el formato requerido." });
+            }
+
+            if (SanitizadorHelper.ContieneCodigoMalicioso(dto.CompanyName) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.ContactName) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.City) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.Country) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.Phone))
+            {
+                return BadRequest(new { mensaje = "Los datos contienen caracteres o etiquetas no permitidas por seguridad." });
             }
 
             var cliente = await _context.Customers
@@ -165,7 +180,7 @@ namespace APIWeb.Controllers
             cliente.Activo = false;
 
             var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.CustomerId == customerId);
+                .FirstOrDefaultAsync(u => u.CustomerID == customerId);
 
             if (usuario != null)
             {
