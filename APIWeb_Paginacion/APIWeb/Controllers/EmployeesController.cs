@@ -6,6 +6,8 @@ using APIWeb.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using APIWeb.Helpers;
+using Microsoft.AspNetCore.Identity;
 
 namespace APIWeb.Controllers
 {
@@ -31,8 +33,8 @@ namespace APIWeb.Controllers
 
             var idsEmpleados = empleados.Select(e => e.EmployeeId).ToList();
             var usuariosPorEmpleado = await _context.Usuarios
-                .Where(u => u.EmployeeId != null && idsEmpleados.Contains(u.EmployeeId.Value))
-                .ToDictionaryAsync(u => u.EmployeeId!.Value, u => u);
+                .Where(u => u.EmployeeID != null && idsEmpleados.Contains(u.EmployeeID.Value))
+                .ToDictionaryAsync(u => u.EmployeeID!.Value, u => u);
 
             var resultado = empleados.Select(e =>
             {
@@ -63,6 +65,17 @@ namespace APIWeb.Controllers
             if (!ModelState.IsValid)
             {
                 return BadRequest(new { mensaje = "Revisa los campos obligatorios y el formato de los datos." });
+            }
+
+            if (SanitizadorHelper.ContieneCodigoMalicioso(dto.NombreUsuario) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.Email) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.FirstName) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.LastName) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.Title) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.City) ||
+                SanitizadorHelper.ContieneCodigoMalicioso(dto.HomePhone))
+            {
+                return BadRequest(new { mensaje = "Entrada rechazada: contiene etiquetas o código no permitido." });
             }
 
             string usuarioLimpio = LimpiarTexto(dto.NombreUsuario);
@@ -123,10 +136,10 @@ namespace APIWeb.Controllers
                 {
                     NombreUsuario = usuarioLimpio,
                     Email = emailLimpio,
-                    PasswordHash = GenerarHashSha256(dto.Password),
+                    PasswordHash = new PasswordHasher<Usuario>().HashPassword(new Usuario(), dto.Password),
                     Rol = dto.Rol, // "Admin" o "Empleado"
-                    EmployeeId = nuevoEmpleado.EmployeeId,
-                    CustomerId = null,
+                    EmployeeID = nuevoEmpleado.EmployeeId,
+                    CustomerID = null,
                     IntentosFallidos = 0,
                     Activo = true
                 };
@@ -184,7 +197,7 @@ namespace APIWeb.Controllers
             empleado.Activo = false;
 
             var usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.EmployeeId == id);
+                .FirstOrDefaultAsync(u => u.EmployeeID == id);
 
             if (usuario != null)
             {

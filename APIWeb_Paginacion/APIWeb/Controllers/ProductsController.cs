@@ -92,6 +92,7 @@ namespace APIWeb.Controllers
         // GET: api/Products/paginado?busqueda=chai&pagina=1&tamanio=12
         // Vista de Cards para clientes: filtra obligatoriamente Discontinued == false
         [HttpGet("paginado")]
+        [AllowAnonymous]
         public async Task<ActionResult<object>> GetProductsPaginados(
             [FromQuery] string? busqueda = "",
             [FromQuery] int pagina = 1,
