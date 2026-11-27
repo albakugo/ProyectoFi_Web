@@ -21,6 +21,7 @@ namespace APIWeb.Controllers
 
         // PROHIBIDO: GET /api/customers (SELECT * de todos los clientes)
         // Solo se permite busqueda exacta y con datos sensibles cubiertos
+        // O en su defecto, los primeros 20 datos
         [HttpPost("buscar")]
         public async Task<IActionResult> BuscarClientes([FromBody] BuscarClienteDto filtro)
         {
@@ -42,6 +43,41 @@ namespace APIWeb.Controllers
                            (c.CustomerId.ToLower().Contains(termino) ||
                             c.CompanyName.ToLower().Contains(termino) ||
                             (c.ContactName != null && c.ContactName.ToLower().Contains(termino))))
+                .Take(15)
+                .ToListAsync();
+
+            var idsClientes = clientes.Select(c => c.CustomerId).ToList();
+            var correosPorCliente = await _context.Usuarios
+                .Where(u => u.CustomerID != null && idsClientes.Contains(u.CustomerID))
+                .ToDictionaryAsync(u => u.CustomerID!, u => u.Email);
+
+            var resultado = clientes.Select(c =>
+            {
+                correosPorCliente.TryGetValue(c.CustomerId, out string? emailReal);
+
+                return new ClienteConsultaDto
+                {
+                    CustomerId = c.CustomerId,
+                    CompanyName = c.CompanyName,
+                    ContactName = c.ContactName ?? string.Empty,
+                    City = c.City,
+                    Country = c.Country,
+                    EmailEnmascarado = EnmascararEmail(emailReal),
+                    TelefonoEnmascarado = EnmascararTelefono(c.Phone),
+                    Activo = c.Activo
+                };
+            }).ToList();
+
+            return Ok(resultado);
+        }
+
+        // Vista previa acotada de clientes activos (maximo 15, con datos cubiertos)
+        [HttpGet("recientes")]
+        public async Task<IActionResult> ObtenerClientesIniciales()
+        {
+            var clientes = await _context.Customers
+                .Where(c => c.Activo)
+                .OrderBy(c => c.CompanyName)
                 .Take(15)
                 .ToListAsync();
 

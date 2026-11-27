@@ -254,6 +254,9 @@ namespace APIWeb.Controllers
             string email = request.Email.Trim();
             string nombre = request.Nombre.Trim();
             string empresa = request.Empresa.Trim();
+            string? telefono = string.IsNullOrWhiteSpace(request.Telefono)
+                ? null
+                : request.Telefono.Trim();
 
             // Verificar que el usuario o correo no existan
             bool existe = await _context.Usuarios.AnyAsync(u =>
@@ -296,7 +299,8 @@ namespace APIWeb.Controllers
                 CustomerId = customerId,
                 CompanyName = empresa,
                 ContactName = nombre,
-                Phone = request.Telefono?.Trim()
+                Phone = telefono,
+                Activo = true
             };
 
             // Crear el usuario
