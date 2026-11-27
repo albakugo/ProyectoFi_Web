@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using Microsoft.AspNetCore.Identity;
+using System.Security.Cryptography;
 using System.Text;
 using APIWeb.Data;
 using APIWeb.DTOs;
@@ -136,13 +137,15 @@ namespace APIWeb.Controllers
                 {
                     NombreUsuario = usuarioLimpio,
                     Email = emailLimpio,
-                    PasswordHash = new PasswordHasher<Usuario>().HashPassword(new Usuario(), dto.Password),
                     Rol = dto.Rol, // "Admin" o "Empleado"
                     EmployeeID = nuevoEmpleado.EmployeeId,
                     CustomerID = null,
                     IntentosFallidos = 0,
                     Activo = true
                 };
+
+                var passwordHasher = new PasswordHasher<Usuario>();
+                nuevoUsuario.PasswordHash = passwordHasher.HashPassword(nuevoUsuario, dto.Password);
 
                 _context.Usuarios.Add(nuevoUsuario);
                 await _context.SaveChangesAsync();
@@ -210,13 +213,6 @@ namespace APIWeb.Controllers
         }
 
         // --- Metodos privados auxiliares ---
-
-        private static string GenerarHashSha256(string texto)
-        {
-            byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(texto));
-            return Convert.ToHexString(bytes).ToLower();
-        }
-
         private static string EnmascararEmail(string? email)
         {
             if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))

@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Iniciar sesión - APIWeb</title>
+    <title>Iniciar sesión</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
         rel="stylesheet"
@@ -74,12 +74,15 @@
 
                             <div id="mensaje" class="alert d-none" role="alert"></div>
 
-                            <div class="d-grid">
-                                <button type="submit" id="btnLogin" class="btn btn-primary">
+                            <div class="d-grid gap-2 mt-4">
+                                <button type="submit" id="btnLogin" class="btn btn-primary btn-lg">
                                     Iniciar sesión
                                 </button>
+                                
+                                <a href="registro-cliente.html" class="btn btn-outline-secondary">
+                                    ¿No tienes cuenta? Regístrate como cliente
+                                </a>
                             </div>
-
                         </form>
 
                     </div>
@@ -141,7 +144,7 @@
                 pregunta.textContent = "Error al cargar CAPTCHA";
 
                 mostrarMensaje(
-                    "No se pudo conectar con la API. Verifica que esté ejecutándose.",
+                    "Error al conectarse con el servidor. Intenta nuevamente.",
                     "danger"
                 );
 
@@ -204,9 +207,10 @@
                     return;
                 }
 
-                sessionStorage.setItem("token", data.token);
-                sessionStorage.setItem("rol", data.rol);
-                sessionStorage.setItem("usuario", data.usuario);
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("rol", data.rol);
+                localStorage.setItem("usuario", data.usuario);
+                sessionStorage.clear();
 
                 if (data.rol === "Admin" || data.rol === "Empleado") {
                     //redirige al CRUD de productos

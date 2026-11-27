@@ -135,6 +135,36 @@ catch (Exception ex)
             return Ok(new { mensaje = $"Se agregó '{producto.ProductName}' al carrito." });
         }
 
+        // GET: api/Orders/mis-pedidos
+        [HttpGet("mis-pedidos")]
+        public async Task<IActionResult> ObtenerMisPedidos()
+        {
+            var customerId = ObtenerCustomerId();
+            if (string.IsNullOrEmpty(customerId))
+                return BadRequest(new { mensaje = "Tu token no tiene CustomerId." });
+
+            var pedidos = await _context.Orders
+                .Where(o => o.CustomerId == customerId && o.Estado == "Comprado")
+                .OrderByDescending(o => o.OrderDate)
+                .Select(o => new
+                {
+                    orderId = o.OrderId,
+                    orderDate = o.OrderDate,
+                    estado = o.Estado,
+                    total = o.OrderDetails.Sum(d => d.UnitPrice * d.Quantity),
+                    productos = o.OrderDetails.Select(d => new
+                    {
+                        nombre = d.Product.ProductName,
+                        quantity = d.Quantity,
+                        unitPrice = d.UnitPrice,
+                        subtotal = d.UnitPrice * d.Quantity
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(pedidos);
+        }
+
         // POST: api/Orders/comprar
         [HttpPost("comprar")]
         public async Task<IActionResult> Comprar()

@@ -37,7 +37,7 @@
                     <div class="row g-3 align-items-end">
                         <div class="col-md-9">
                             <label for="criterioCliente" class="form-label">ID de cliente, empresa o nombre de contacto (mínimo 2 caracteres)</label>
-                            <input type="text" id="criterioCliente" class="form-control" minlength="2" maxlength="40" placeholder="Ej. ALFKI o Alfreds" required>
+                            <input type="text" id="criterioCliente" class="form-control" maxlength="40" placeholder="Ej. ALFKI o Alfreds (deja vacío para ver recientes)">
                         </div>
                         <div class="col-md-3">
                             <button type="submit" class="btn btn-primary w-100">Buscar cliente</button>
@@ -82,6 +82,7 @@
             document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("formBuscarCliente")
                     .addEventListener("submit", (e) => buscarClientes(e, sesionStaff.token));
+                cargarClientesIniciales(sesionStaff.token);
             });
         }
     </script>

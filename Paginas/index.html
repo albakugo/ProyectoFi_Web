@@ -148,8 +148,8 @@
 
 
         // Obtener los datos de la sesión
-        const token = sessionStorage.getItem('token');
-        const rol = sessionStorage.getItem('rol');
+        const token = localStorage.getItem('token');
+        const rol = localStorage.getItem('rol');
 
         // Si no hay sesión, regresar al login
         if (!token) {

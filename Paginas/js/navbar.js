@@ -61,14 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
     zonaUsuario.className = "d-flex align-items-center gap-2";
 
     if (sesion) {
-        const textoIdentidad = sesion.usuario
-            ? (sesion.usuarioId ? `${sesion.usuario} (ID: ${sesion.usuarioId})` : sesion.usuario)
-            : (sesion.usuarioId ? `ID: ${sesion.usuarioId}` : "");
-
-        if (textoIdentidad) {
+        if (sesion.usuario) {
             const saludo = document.createElement("span");
             saludo.className = "text-light small fw-semibold me-1";
-            saludo.textContent = `Hola, ${textoIdentidad}`;
+            saludo.textContent = `Hola, ${sesion.usuario}`;
             zonaUsuario.appendChild(saludo);
         }
 

@@ -141,15 +141,82 @@ async function darBajaEmpleado(employeeId, nombreCompleto, token) {
     }
 }
 
-// --- Modulo de Clientes (Busqueda segura + Baja Logica) ---
+// --- Modulo de Clientes (Vista inicial + Busqueda segura + Baja Logica) ---
+function renderizarTablaClientes(datos, token, recargarCallback) {
+    const tbody = document.getElementById("tablaClientesBody");
+    if (!tbody) return;
+
+    tbody.replaceChildren();
+
+    if (!datos || datos.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 7;
+        td.className = "text-center text-muted";
+        td.textContent = "No se encontraron clientes activos.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+    }
+
+    datos.forEach(cli => {
+        const tr = document.createElement("tr");
+        tr.appendChild(crearCeldaTexto(cli.customerId));
+        tr.appendChild(crearCeldaTexto(cli.companyName));
+        tr.appendChild(crearCeldaTexto(cli.contactName));
+        tr.appendChild(crearCeldaTexto(cli.city || "N/A"));
+        tr.appendChild(crearCeldaTexto(cli.emailEnmascarado));
+        tr.appendChild(crearCeldaTexto(cli.telefonoEnmascarado));
+
+        const tdAccion = document.createElement("td");
+        const btnBaja = document.createElement("button");
+        btnBaja.type = "button";
+        btnBaja.className = "btn btn-sm btn-outline-danger";
+        btnBaja.textContent = "Baja lógica";
+        btnBaja.addEventListener("click", () => darBajaCliente(cli.customerId, cli.companyName, token, recargarCallback));
+
+        tdAccion.appendChild(btnBaja);
+        tr.appendChild(tdAccion);
+        tbody.appendChild(tr);
+    });
+}
+
+async function cargarClientesIniciales(token) {
+    try {
+        const respuesta = await fetch(`${API_BASE_URL}/Customers/recientes`, {
+            method: "GET",
+            headers: obtenerHeadersAuth(token)
+        });
+
+        if (respuesta.status === 401 && window.AuthGuard) {
+            window.AuthGuard.cerrarSesion();
+            return;
+        }
+
+        const datos = await respuesta.json();
+        if (!respuesta.ok) {
+            mostrarMensaje("mensajeClientes", datos.mensaje || "No se pudo cargar la lista de clientes.", "danger");
+            return;
+        }
+
+        renderizarTablaClientes(datos, token, () => cargarClientesIniciales(token));
+    } catch {
+        mostrarMensaje("mensajeClientes", "Error de conexión al cargar los clientes.", "danger");
+    }
+}
+
 async function buscarClientes(evento, token) {
-    evento.preventDefault(); // Bloquea envio directo del formulario
+    if (evento) evento.preventDefault();
 
     const criterio = document.getElementById("criterioCliente").value.trim();
-    const tbody = document.getElementById("tablaClientesBody");
+
+    if (criterio.length === 0) {
+        await cargarClientesIniciales(token);
+        return;
+    }
 
     if (criterio.length < 2) {
-        mostrarMensaje("mensajeClientes", "Ingresa al menos 2 caracteres para realizar la búsqueda.", "warning");
+        mostrarMensaje("mensajeClientes", "Ingresa al menos 2 caracteres para filtrar o deja vacío para ver recientes.", "warning");
         return;
     }
 
@@ -160,6 +227,11 @@ async function buscarClientes(evento, token) {
             body: JSON.stringify({ criterio })
         });
 
+        if (respuesta.status === 401 && window.AuthGuard) {
+            window.AuthGuard.cerrarSesion();
+            return;
+        }
+
         const datos = await respuesta.json();
 
         if (!respuesta.ok) {
@@ -167,45 +239,13 @@ async function buscarClientes(evento, token) {
             return;
         }
 
-        tbody.replaceChildren();
-
-        if (datos.length === 0) {
-            const tr = document.createElement("tr");
-            const td = document.createElement("td");
-            td.colSpan = 7;
-            td.className = "text-center text-muted";
-            td.textContent = "No se encontraron clientes activos con ese criterio.";
-            tr.appendChild(td);
-            tbody.appendChild(tr);
-            return;
-        }
-
-        datos.forEach(cli => {
-            const tr = document.createElement("tr");
-            tr.appendChild(crearCeldaTexto(cli.customerId));
-            tr.appendChild(crearCeldaTexto(cli.companyName));
-            tr.appendChild(crearCeldaTexto(cli.contactName));
-            tr.appendChild(crearCeldaTexto(cli.city || "N/A"));
-            tr.appendChild(crearCeldaTexto(cli.emailEnmascarado));
-            tr.appendChild(crearCeldaTexto(cli.telefonoEnmascarado));
-
-            const tdAccion = document.createElement("td");
-            const btnBaja = document.createElement("button");
-            btnBaja.type = "button";
-            btnBaja.className = "btn btn-sm btn-outline-danger";
-            btnBaja.textContent = "Baja lógica";
-            btnBaja.addEventListener("click", () => darBajaCliente(cli.customerId, cli.companyName, token, evento));
-
-            tdAccion.appendChild(btnBaja);
-            tr.appendChild(tdAccion);
-            tbody.appendChild(tr);
-        });
+        renderizarTablaClientes(datos, token, () => buscarClientes(null, token));
     } catch {
         mostrarMensaje("mensajeClientes", "Error de conexión al buscar clientes.", "danger");
     }
 }
 
-async function darBajaCliente(customerId, companyName, token, eventoBusqueda) {
+async function darBajaCliente(customerId, companyName, token, recargarCallback) {
     const confirmar = confirm(`¿Seguro que deseas aplicar baja lógica al cliente "${companyName}" (${customerId})?`);
     if (!confirmar) return;
 
@@ -223,7 +263,9 @@ async function darBajaCliente(customerId, companyName, token, eventoBusqueda) {
         }
 
         mostrarMensaje("mensajeClientes", datos.mensaje, "success");
-        await buscarClientes(eventoBusqueda, token);
+        if (typeof recargarCallback === "function") {
+            await recargarCallback();
+        }
     } catch {
         mostrarMensaje("mensajeClientes", "Error de conexión al intentar dar de baja al cliente.", "danger");
     }
